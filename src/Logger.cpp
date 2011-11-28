@@ -1,33 +1,39 @@
 /*
-haus|prox - Electronic door access control system
-Copyright (C) 2011  Peter Rogers @thinkhaus
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with this program.  If not, see <http://www.gnu.org/licenses/>.
-*/
+ * haus|prox - Electronic door access control system
+ * Copyright (C) 2011  Peter Rogers @thinkhaus
+ * 
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ * 
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ * 
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
 
 /* Logger.cpp */
 
 #include "utils.h"
 #include "WProgram.h"
 #include "Logger.h"
+#include "CardReader.h"
 
 PROGMEM const prog_char strCardType[] = {"[CARD] "};
 PROGMEM const prog_char strAdminType[] = {"[ADMN] "};
 PROGMEM const prog_char strMessageType[] = {"[MESG] "};
 PROGMEM const prog_char strErrorType[] = {"[ERRR] "};
+PROGMEM const prog_char strDoorType[] = {"[DOOR] "};
 PROGMEM const prog_char strFacilityPart[]  = {", facility="};
 PROGMEM const prog_char strCardPart[] = {", card="};
+PROGMEM const prog_char strBufferPart[] = {", buffer="};
+
+/* Define the global logger */
+Logger logger;
 
 Logger::Logger()
 {
@@ -40,7 +46,7 @@ void Logger::logMessage(int level, const prog_char *msg)
   logMessage(level, msg, facility, card);
 }
 
-void Logger::logMessage(int level, const prog_char *msg, unsigned int facility, unsigned int card)
+void Logger::logMessage(int level, const prog_char *msg, unsigned int facility, unsigned int card, CardReader *reader)
 {
   /* Base the name of the log file on the current date */
   int year = 2011;
@@ -81,6 +87,9 @@ void Logger::logMessage(int level, const prog_char *msg, unsigned int facility, 
     case LOG_ERROR:
       strType = strErrorType;
       break;
+    case LOG_DOOR:
+      strType = strDoorType;
+      break;
     default:
       strType = strMessageType;
       break;
@@ -107,37 +116,25 @@ void Logger::logMessage(int level, const prog_char *msg, unsigned int facility, 
     }
   }
 
+  if (reader != NULL) {
+    int n, numBits = reader->getBitsRead();
+    print_prog_str(&Serial, strBufferPart);
+    for (n = 0; n < numBits; n++) {
+      Serial.print('0'+reader->getData(n), BYTE);
+    }
+    Serial.print('\n');
+    if (file) {
+      print_prog_str(&file, strBufferPart);
+      for (n = 0; n < numBits; n++) {
+        file.print('0'+reader->getData(n), BYTE);
+      }
+      file.print('\n');
+    }
+  }
+
   Serial.print('\n', BYTE);
   if (file) file.print('\n', BYTE);
 
   if (file) file.close();
 }
 
-/*
-void Logger::logError(const prog_char *msg, const char *error)
-{
-  if (!openLogFile()) {
-    return;
-  }
-  writeTimeStamp();
-  print_prog_str(out, strErrorType);
-  out->print(' ', BYTE);
-  print_prog_str(out, msg);
-  out->print(": error=");
-  out->println(error);
-  closeLogFile();
-}
-
-void Logger::logAdmin(const prog_char *msg)
-{
-  if (!openLogFile()) {
-    return;
-  }
-  writeTimeStamp();
-  print_prog_str(out, strAdminType);
-  out->print(' ', BYTE);
-  print_prog_str(out, msg);
-  out->print('\n', BYTE);
-  closeLogFile();
-}
-*/

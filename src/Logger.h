@@ -1,20 +1,20 @@
 /*
-haus|prox - Electronic door access control system
-Copyright (C) 2011  Peter Rogers @thinkhaus
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with this program.  If not, see <http://www.gnu.org/licenses/>.
-*/
+ * haus|prox - Electronic door access control system
+ * Copyright (C) 2011  Peter Rogers @thinkhaus
+ * 
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ * 
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ * 
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
 
 /* Logger.h */
 
@@ -27,11 +27,12 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #define LOG_ERROR    2
 #define LOG_ADMIN    3  
 #define LOG_MESG     4
+#define LOG_DOOR     5
+
+class CardReader;
 
 class Logger
 {
-  private:
-  
   public:
     Logger();
     
@@ -45,17 +46,14 @@ class Logger
 
     /* Message format:
      *
-     * YYYY/MM/DD hh:mm:ss [TYPE] msg 
+     * YYYY/MM/DD hh:mm:ss [CARDS] msg: facility=nnn, card=nnn, buffer=nnn
      */
-    //void logMessage(int level, const prog_char *msg, const char *buffer, int numBits);
+    void logMessage(int level, const prog_char *msg, unsigned int facility, unsigned int card, CardReader *reader=NULL);
 
-    /* Message format:
-     *
-     * YYYY/MM/DD hh:mm:ss [CARDS] msg: facility=nnn, card=nnn 
-     */
-    void logMessage(int level, const prog_char *msg, unsigned int facility, unsigned int card);
-    
 };
+
+/* The global logger */
+extern Logger logger;
 
 #endif
 
