@@ -73,16 +73,20 @@ PROGMEM const prog_char strLeadingZeros[] = {"Leading zeros expected"};
 /* CardReader */
 /**************/
 
-CardReader::CardReader(int data, int clock, int present)
+CardReader::CardReader(int data, int clock, int present, int beep)
 {
   dataPin = data;
   clockPin = clock;
   presentPin = present;
+  beepPin = beep;
   bitsRead = 0;
   // Set the pins to input mode
   pinMode(clockPin, INPUT);
   pinMode(dataPin, INPUT);
   pinMode(presentPin, INPUT);
+  pinMode(beepPin, OUTPUT);
+  // Turn off beep by default
+  setBeep(false);
   clearCardData();
 }
 
@@ -202,6 +206,23 @@ int CardReader::readCard(unsigned int &facility, unsigned int &card)
     /* Extract the card ID */
     card = result & 0xFFFF;
     return CARD_SUCCESS;
+}
+
+void CardReader::setBeep(boolean b) 
+{
+  digitalWrite(beepPin, b ? LOW : HIGH);
+}
+
+void CardReader::playFailBeep()
+{
+  int n;
+  for(n = 0; n < 3; n++)
+  {
+    setBeep(true);
+    delay(200);
+    setBeep(false);
+    delay(100);
+  }
 }
 
 const prog_char *CardReader::getErrorStr(int code)

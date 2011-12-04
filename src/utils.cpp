@@ -48,8 +48,8 @@ void DebouncedInput::update(boolean st)
     }
   } else {
     /* Restart the bounce count */
-    if (bounceCount > 0)
-      Serial.println(bounceCount);
+//    if (bounceCount > 0)
+//      Serial.println(bounceCount);
     bounceCount = 0;
   }
 }

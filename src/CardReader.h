@@ -41,6 +41,7 @@ class CardReader
     int dataPin;
     int clockPin;
     int presentPin;
+    int beepPin;
     /* Number of bits read after calling readCard */
     int bitsRead;
 
@@ -52,7 +53,7 @@ class CardReader
     boolean appendData(int bit);
     
   public:
-    CardReader(int data, int clock, int present);
+    CardReader(int data, int clock, int present, int beep);
 
     static const prog_char *getErrorStr(int code);
 
@@ -67,11 +68,13 @@ class CardReader
      * for identifying phantom card reads caused by spurious noise on the card 
      * present line. */
     //int getBitsRead() { return bitsRead; }
+
+    void setBeep(boolean b);
+    void playFailBeep();
     
     void receiveCardData();
 
     void clearCardData();
-
     boolean hasCardData();
 
     int getData(int pos);

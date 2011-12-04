@@ -33,6 +33,7 @@
 #define CLOCK             3
 #define DATA              4
 #define PRESENT           5
+#define BEEP              6
 
 #define DOOR_LATCH        2
 
@@ -41,11 +42,12 @@
 
 /* Chip select for the SD card */
 #define SD_CHIPSEL        10
+#define RTC_CHIPSEL       9
 
 /* The maximum admin password length */
 #define PASSWORD_LEN      16
 
-CardReader     reader(DATA, CLOCK, PRESENT);
+CardReader     reader(DATA, CLOCK, PRESENT, BEEP);
 CardDatabase   database;
 
 Door           door(DOOR_LATCH);
@@ -159,12 +161,14 @@ void timer_tick()
   door.tick();
 }
 
+/* Locks the door and logs a message */
 void lock_door()
 {
   logger.logMessage(LOG_DOOR, strDoorLocked);
   door.lock();
 }
 
+/* Unlocks the door for a period of time (in seconds) and logs a message */
 void unlock_door(long duration)
 {
   if (! door.isLocked() ) {
@@ -182,16 +186,20 @@ void unlock_door(long duration)
 
 void handle_events()
 {
-  /* Check if the door has recently locked */
+  /* This is where we catch the door being locked and log a message. Locking happens either inside the 
+   * timer interrupt, or by explicitly calling door.lock() when the open house button is pressed. This
+   * code handles both of those cases. */
   boolean locked = door.isLocked();
-  if (locked && !lastDoorLocked) {
+  if (locked && !lastDoorLocked) 
+  {
     if (openHouseMode) {
       /* Open house mode has expired */
       openHouseMode = false;
       logger.logMessage(LOG_DOOR, strOpenHouseExpired);
+    } else {
+      /* Log that the door has been locked again */
+      logger.logMessage(LOG_DOOR, strDoorLocked);
     }
-    /* Log that the door has been locked again */
-    logger.logMessage(LOG_DOOR, strDoorLocked);
   }
   lastDoorLocked = locked;
   
@@ -202,11 +210,15 @@ void handle_events()
   handle_open_house();
 }
 
+/* Called to handle a card being scanned. The data is actually buffered up by the interrupt handler
+ * attached to the clock pin. When sufficient data has been captured (255 bytes) this function 
+ * will process the data, scan the database, etc. */
 void handle_card_scanned()
 {
   unsigned int facility, card;
 
   if (!reader.hasCardData()) {
+    // No data present
     return;
   }
 
@@ -222,26 +234,15 @@ void handle_card_scanned()
     return;
   }
 
-/*
-  int n;
-  for (n = 0; n < reader.getLength(); n++)
-  {
-    int bit = reader.getData(n);
-    Serial.print('0'+bit, BYTE);
-  }
-  Serial.println(reader.getLength());
-  Serial.println("done");
-  
-  return;
-*/
-
   // Clear the card buffer
   reader.clearCardData();
 
+  /* Scan the database */
   CardInfo info;
   if (! database.lookupCard(facility, card, info) ) 
   {
     /* The card isn't in the database */
+    reader.playFailBeep();
     logger.logMessage(LOG_CARD, strDenyUnregCard, facility, card);
     return;
   }
@@ -257,6 +258,8 @@ void handle_card_scanned()
       unlock_door(doorEntryDuration);
     }
   } else {
+    /* The card is disabled */
+    reader.playFailBeep();
     logger.logMessage(LOG_CARD, strDenyDisabledCard, facility, card);
   }
 }
@@ -270,19 +273,18 @@ void handle_open_house()
   /* Check if somebody has pressed the button (goes low to high) */
   if (openHouseButton.hasChanged() && openHouseButton.getState()) 
   {
-    if (openHouseMode) {
+    /* Toggle open house mode */
+    openHouseMode = !openHouseMode;
+    digitalWrite(OPEN_HOUSE_LIGHT, openHouseMode ? HIGH : LOW);
+    if (!openHouseMode) {
       // Turn off open house mode
-      openHouseMode = false;
-      digitalWrite(OPEN_HOUSE_LIGHT, LOW);
-      logger.logMessage(LOG_DOOR, strOpenHouseOff);
       lock_door();
+      logger.logMessage(LOG_DOOR, strOpenHouseOff);
     } else {
       // Turn on open house mode
-      openHouseMode = true;
-      logger.logMessage(LOG_DOOR, strOpenHouseOn);
       unlock_door(openHouseDuration);
+      logger.logMessage(LOG_DOOR, strOpenHouseOn);
     }
-    digitalWrite(OPEN_HOUSE_LIGHT, HIGH);
   }
 }
 
@@ -365,6 +367,7 @@ void setup()
   /* Set the open house button pin and internal pull-up resistor */
   pinMode(OPEN_HOUSE_BTN, INPUT);
   digitalWrite(OPEN_HOUSE_BTN, HIGH);
+  pinMode(OPEN_HOUSE_LIGHT, OUTPUT);
 
   // Initialize the SD card
   pinMode(SD_CHIPSEL, OUTPUT);
@@ -372,6 +375,10 @@ void setup()
     logger.logMessage(LOG_MESG, strSDInitFail);
   }
   logger.logMessage(LOG_MESG, strBootupMessage);
+
+  // Initialize the RTC
+  pinMode(RTC_CHIPSEL, OUTPUT);
+  digitalWrite(RTC_CHIPSEL, HIGH);
 
   /* Load the general program configuration */  
   load_config();
@@ -382,6 +389,11 @@ void setup()
   /* Start the 1-second interrupt timer */
   Timer1.attachInterrupt(timer_tick);
   Timer1.initialize(1000000);
+  
+  // Have the reader make a short beep
+  reader.setBeep(true);
+  delay(200);
+  reader.setBeep(false);
 }
 
 void loop()

@@ -24,6 +24,7 @@
 Door::Door(int pin)
 {
   latchPin = pin;
+  pinMode(latchPin, OUTPUT);
   lockDoorCountdown = 0;
 }
 
@@ -32,7 +33,7 @@ void Door::lock()
   // Disable interrupts
   cli();
   lockDoorCountdown = 0;
-  digitalWrite(latchPin, HIGH);
+  digitalWrite(latchPin, LOW);
   // Re-enable interrupts
   sei();
 }
@@ -43,7 +44,7 @@ void Door::unlock(long duration)
   cli();
   if (duration > 0) {
     lockDoorCountdown = duration;
-    digitalWrite(latchPin, LOW);
+    digitalWrite(latchPin, HIGH);
   }
   // Re-enable interrupts
   sei();
@@ -57,7 +58,7 @@ void Door::tick()
     lockDoorCountdown--;
     if (lockDoorCountdown == 0) {
       /* Lock the door again */
-      digitalWrite(latchPin, HIGH);
+      digitalWrite(latchPin, LOW);
     }
   }
 }
