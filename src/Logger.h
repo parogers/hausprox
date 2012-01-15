@@ -22,6 +22,7 @@
 #define __LOGGER_H__
 
 #include <SD.h>
+#include "Clock.h"
 
 #define LOG_CARD     1
 #define LOG_ERROR    2
@@ -36,7 +37,11 @@ class Logger
   public:
     Logger();
     
+    /* The realtime clock */
+//    Clock clock;
     boolean enabled;
+    
+    void begin(int sdPin, int rtcPin);
 
     /* Message format:
      *
@@ -48,7 +53,7 @@ class Logger
      *
      * YYYY/MM/DD hh:mm:ss [CARDS] msg: facility=nnn, card=nnn, buffer=nnn
      */
-    void logMessage(int level, const prog_char *msg, unsigned int facility, unsigned int card, CardReader *reader=NULL);
+    void logMessage(int level, const prog_char *msg, const char *serial, CardReader *reader=NULL);
 
 };
 

@@ -17,13 +17,15 @@
  */
 
 #include <string.h>
-#include <SD.h>
 #include <TimerOne.h>
 #include "CardReader.h"
 #include "CardDatabase.h"
 #include "Logger.h"
 #include "utils.h"
 #include "Door.h"
+
+#include <SD.h>
+#include <SPI.h>
 
 /* TODO:
  * -What if the SD card fails to init?
@@ -40,17 +42,18 @@
 #define OPEN_HOUSE_BTN    7
 #define OPEN_HOUSE_LIGHT  8
 
+/* Chip select line for the RTC */
+#define RTC_CHIPSEL       9
 /* Chip select for the SD card */
 #define SD_CHIPSEL        10
-#define RTC_CHIPSEL       9
 
 /* The maximum admin password length */
 #define PASSWORD_LEN      16
 
-CardReader     reader(DATA, CLOCK, PRESENT, BEEP);
+CardReader     reader;
 CardDatabase   database;
 
-Door           door(DOOR_LATCH);
+Door           door;
 
 /* Whether we are in "open house" mode, where the door is kept open
  * for a pre-determined amount of time */
@@ -85,7 +88,6 @@ PROGMEM const prog_char strAdmitEntry[] = {"Admit entry"};
 PROGMEM const prog_char strDenyDisabledCard[] = {"Deny disabled card"};
 PROGMEM const prog_char strDenyUnregCard[] = {"Deny unregistered card"};
 PROGMEM const prog_char strAdminDenied[] = {"Admin access denied"};
-PROGMEM const prog_char strSDInitFail[] = {"Failed to init the SD card"};
 PROGMEM const prog_char strBootupMessage[] = {"haus|prox bootup"};
 PROGMEM const prog_char strLoginMessage[] = {"Admin login"};
 PROGMEM const prog_char strLoginPrompt[] = {"\nLogin: "};
@@ -215,20 +217,19 @@ void handle_events()
  * will process the data, scan the database, etc. */
 void handle_card_scanned()
 {
-  unsigned int facility, card;
-
   if (!reader.hasCardData()) {
     // No data present
     return;
   }
 
   // Read the card data
-  int err = reader.readCard(facility, card);
+  char serial[READER_SERIAL_BUF_LEN];
+  int err = reader.readCard(serial, sizeof(serial));
 
   // Interpret the results
   if (err != 0) {
     /* Log the error and the contents of the card buffer */
-    logger.logMessage(LOG_ERROR, CardReader::getErrorStr(err), 0, 0, &reader);
+    logger.logMessage(LOG_ERROR, CardReader::getErrorStr(err), NULL, &reader);
     // Clear the card buffer
     reader.clearCardData();
     return;
@@ -239,11 +240,12 @@ void handle_card_scanned()
 
   /* Scan the database */
   CardInfo info;
-  if (! database.lookupCard(facility, card, info) ) 
+
+  if (! database.lookupCard(serial, info) ) 
   {
     /* The card isn't in the database */
     reader.playFailBeep();
-    logger.logMessage(LOG_CARD, strDenyUnregCard, facility, card);
+    logger.logMessage(LOG_CARD, strDenyUnregCard, serial);
     return;
   }
   if (info.enabled) 
@@ -251,16 +253,16 @@ void handle_card_scanned()
     /* Card holder is granted access */
     if (openHouseMode) {
       /* Already in open house mode, so whatever */
-      logger.logMessage(LOG_CARD, strValidOpenHouse, facility, card);
+      logger.logMessage(LOG_CARD, strValidOpenHouse, serial);
     } else {
       /* Log the entry message */
-      logger.logMessage(LOG_CARD, strAdmitEntry, facility, card);
+      logger.logMessage(LOG_CARD, strAdmitEntry, serial);
       unlock_door(doorEntryDuration);
     }
   } else {
     /* The card is disabled */
     reader.playFailBeep();
-    logger.logMessage(LOG_CARD, strDenyDisabledCard, facility, card);
+    logger.logMessage(LOG_CARD, strDenyDisabledCard, serial);
   }
 }
 
@@ -369,24 +371,25 @@ void setup()
   digitalWrite(OPEN_HOUSE_BTN, HIGH);
   pinMode(OPEN_HOUSE_LIGHT, OUTPUT);
 
-  // Initialize the SD card
-  pinMode(SD_CHIPSEL, OUTPUT);
-  if (!SD.begin(SD_CHIPSEL)) {
-    logger.logMessage(LOG_MESG, strSDInitFail);
-  }
-  logger.logMessage(LOG_MESG, strBootupMessage);
+  /* Setup the card reader */
+  reader.begin(DATA, CLOCK, PRESENT, BEEP);
 
-  // Initialize the RTC
-  pinMode(RTC_CHIPSEL, OUTPUT);
-  digitalWrite(RTC_CHIPSEL, HIGH);
+  /* Setup the door control */
+  door.begin(DOOR_LATCH);
 
+  // Initialize the logger, which will init the SD card and RTC chip
+  logger.begin(SD_CHIPSEL, RTC_CHIPSEL);
+  
   /* Load the general program configuration */  
   load_config();
+
+  // Log the bootup message
+  logger.logMessage(LOG_MESG, strBootupMessage);
 
   /* Attach an interrupt to the card reader clock pin */
   attachInterrupt(1, receive_card_data, FALLING);
 
-  /* Start the 1-second interrupt timer */
+  /* Start the 1-second interrupt timer. We use that for keeping track of how long the door has been open */
   Timer1.attachInterrupt(timer_tick);
   Timer1.initialize(1000000);
   

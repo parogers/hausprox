@@ -31,9 +31,14 @@
 #define CARD_TRAILING_ZEROS      -6
 #define CARD_PAD_FAILURE         -7
 #define CARD_LEADING_ZEROS       -8
+#define CARD_BUFFER_TOO_SMALL    -9
 
 #define CARD_BUFFER_LEN         255
 #define CARD_NUM_BITS           255
+
+/* We allocate a buffer of size 10 chars, since serial numbers are made from a three digit facility code,
+ * then a dash, then a 5 digit card code, with an extra byte for null. */
+#define READER_SERIAL_BUF_LEN    10
 
 class CardReader
 {
@@ -49,11 +54,14 @@ class CardReader
     int bufferPos;
     int bytePos;
     int bitPos;
-
+    
     boolean appendData(int bit);
     
   public:
-    CardReader(int data, int clock, int present, int beep);
+    CardReader();
+
+    /* Call 'begin' before using the card reader and pass in the connected pins */
+    void begin(int data, int clock, int present, int beep);
 
     static const prog_char *getErrorStr(int code);
 
@@ -64,6 +72,9 @@ class CardReader
      * this function returns 0, otherwise it returns the error code. */
     int readCard(unsigned int &facility, unsigned int &card);
 
+    /* Reads the card data and copies it into the serial buffer */
+    int readCard(char *serial, int maxlen);
+    
     /* Returns the number of bits read after a call to readCard. This is useful 
      * for identifying phantom card reads caused by spurious noise on the card 
      * present line. */

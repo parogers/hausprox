@@ -21,11 +21,15 @@
 #include "WProgram.h"
 #include "Door.h"
 
-Door::Door(int pin)
+Door::Door()
+{
+  lockDoorCountdown = 0;
+}
+
+void Door::begin(int pin)
 {
   latchPin = pin;
   pinMode(latchPin, OUTPUT);
-  lockDoorCountdown = 0;
 }
 
 void Door::lock()

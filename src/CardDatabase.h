@@ -24,23 +24,54 @@
 #include "WProgram.h"
 #include <SD.h>
 
+/* Maximum card serial number length in chars */
+#define MAX_SERIAL_LEN     16
+
+/* Maximum record length, including the newline character */
+#define MAX_RECORD_LEN     (MAX_SERIAL_LEN+1+1+1)
+
 class CardInfo
 {
   public:
+    char serial[MAX_SERIAL_LEN+1];
+    unsigned int slot;
     boolean enabled;
 };
 
 class CardDatabase
 {
   private:
-  
+    /* The length of a record in the database (including the newline character) */
+    int recordLength;
+    /* The error code (zero = no error) */
+    int error;
+
+    boolean parseCard(char *line, CardInfo &info);
+
   public:
     CardDatabase();
+
+    boolean begin();
 
     /* Lookup a card in the database. Fills information in 'info'
      * and returns true if the card is found, otherwise leaves
      * info unchanged and returns false. */    
-    boolean lookupCard(unsigned int facilty, unsigned int card, CardInfo &info);
+    boolean lookupCard(char *serial, CardInfo &info);
+
+    /* Retreive a card given the slot number */
+    boolean getCard(unsigned int slot, CardInfo &info);
+
+    /* Saves a card in the database */
+    boolean putCard(unsigned int slot, CardInfo &info);
+
+    /* Inserts card data into the database at the first empty slot, or appended if
+     * there are no slots available. */
+    boolean insertCard(CardInfo &info);
+
+    /* Lookup a card in the database. Fills information in 'info'
+     * and returns true if the card is found, otherwise leaves
+     * info unchanged and returns false. */    
+//    boolean lookupCard(unsigned int facilty, unsigned int card, CardInfo &info);
 };
 
 #endif

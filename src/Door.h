@@ -29,8 +29,9 @@ class Door
     int latchPin;
 
   public:
-    Door(int pin);
+    Door();
 
+    void begin(int pin);
     void lock();
     void unlock(long duration);
     void tick();

@@ -22,33 +22,46 @@
 #include "WProgram.h"
 #include "Logger.h"
 #include "CardReader.h"
+//#include "Clock.h"
 
 PROGMEM const prog_char strCardType[] = {"[CARD] "};
 PROGMEM const prog_char strAdminType[] = {"[ADMN] "};
 PROGMEM const prog_char strMessageType[] = {"[MESG] "};
 PROGMEM const prog_char strErrorType[] = {"[ERRR] "};
 PROGMEM const prog_char strDoorType[] = {"[DOOR] "};
-PROGMEM const prog_char strFacilityPart[]  = {", facility="};
-PROGMEM const prog_char strCardPart[] = {", card="};
+PROGMEM const prog_char strSerialPart[]  = {", serial="};
 PROGMEM const prog_char strBufferPart[] = {", buffer="};
+PROGMEM const prog_char strSDInitFail[] = {"Failed to init the SD card"};
+PROGMEM const prog_char strLogOpenFail[] = {"Failed to open serial log file"};
 
-/* Define the global logger */
+/* The global logger instance */
 Logger logger;
 
 Logger::Logger()
 {
 }
 
-void Logger::logMessage(int level, const prog_char *msg)
+void Logger::begin(int sdPin, int rtcPin)
 {
-  unsigned int facility = 0;
-  unsigned int card = 0;
-  logMessage(level, msg, facility, card);
+  /* Setup the RTC */
+  //clock.begin(rtcPin);
+  /* Setup the SD card */
+  pinMode(sdPin, OUTPUT);
+  if (! SD.begin(sdPin) ) {
+    print_prog_str(&Serial, strSDInitFail);
+    //logMessage(LOG_MESG, strSDInitFail);
+  }
 }
 
-void Logger::logMessage(int level, const prog_char *msg, unsigned int facility, unsigned int card, CardReader *reader)
+void Logger::logMessage(int level, const prog_char *msg)
+{
+  logMessage(level, msg, NULL, NULL);
+}
+
+void Logger::logMessage(int level, const prog_char *msg, const char *serial, CardReader *reader)
 {
   /* Base the name of the log file on the current date */
+  //clock.update();
   int year = 2011;
   int month = 10;
   int day = 04;
@@ -65,7 +78,7 @@ void Logger::logMessage(int level, const prog_char *msg, unsigned int facility, 
 
   File file = SD.open(buf, FILE_WRITE);
   if (!file) {
-    return;
+    print_prog_str(&Serial, strLogOpenFail);
   }
   
   // Write out the timestamp
@@ -102,17 +115,13 @@ void Logger::logMessage(int level, const prog_char *msg, unsigned int facility, 
     print_prog_str(&file, msg);
   }
 
-  if (facility != 0 && card != 0) {
-    print_prog_str(&Serial, strFacilityPart);
-    Serial.print(facility);
-    print_prog_str(&Serial, strCardPart);
-    Serial.print(card);
+  if (serial != NULL) {
+    print_prog_str(&Serial, strSerialPart);
+    Serial.print(serial);
     
     if (file) {
-      print_prog_str(&file, strFacilityPart);
-      file.print(facility);
-      print_prog_str(&file, strCardPart);
-      file.print(card);
+      print_prog_str(&file, strSerialPart);
+      file.print(serial);
     }
   }
 

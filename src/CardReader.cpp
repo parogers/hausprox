@@ -73,13 +73,17 @@ PROGMEM const prog_char strLeadingZeros[] = {"Leading zeros expected"};
 /* CardReader */
 /**************/
 
-CardReader::CardReader(int data, int clock, int present, int beep)
+CardReader::CardReader()
+{
+  bitsRead = 0;
+}
+
+void CardReader::begin(int data, int clock, int present, int beep)
 {
   dataPin = data;
   clockPin = clock;
   presentPin = present;
   beepPin = beep;
-  bitsRead = 0;
   // Set the pins to input mode
   pinMode(clockPin, INPUT);
   pinMode(dataPin, INPUT);
@@ -206,6 +210,27 @@ int CardReader::readCard(unsigned int &facility, unsigned int &card)
     /* Extract the card ID */
     card = result & 0xFFFF;
     return CARD_SUCCESS;
+}
+
+int CardReader::readCard(char *serial, int maxlen)
+{
+  unsigned int facility;
+  unsigned int card;
+
+  /* Make sure the serial buffer is large enough */
+  if (maxlen < READER_SERIAL_BUF_LEN) {
+    return CARD_BUFFER_TOO_SMALL;
+  }
+
+  /* Read the facility and card numbers */
+  int ret = readCard(facility, card);
+  if (ret != CARD_SUCCESS) {
+    return ret;
+  }
+
+  /* Translate the card data into a serial number of the form "facility-card". */
+  sprintf(serial, "%03u-%05u", facility, card);
+  return CARD_SUCCESS;
 }
 
 void CardReader::setBeep(boolean b) 

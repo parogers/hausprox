@@ -18,16 +18,12 @@ void Clock::begin(int sel)
 {
   chipsel = sel;
   pinMode(chipsel, OUTPUT);
+  digitalWrite(chipsel, HIGH);
+
+  // Initialize SPI
   SPI.begin();
   SPI.setBitOrder(MSBFIRST);
   SPI.setDataMode(SPI_MODE1);
-
-  digitalWrite(chipsel, LOW);
-  SPI.transfer(0x80);
-  SPI.transfer(B01010000); // seconds
-  SPI.transfer(B01011001); // minutes
-  SPI.transfer(B00011001); // hours
-  digitalWrite(chipsel, HIGH);
 }
 
 void Clock::update()
@@ -52,14 +48,6 @@ void Clock::update()
     int high = 0;
 
     switch(n) {
-      case 0:
-      case 1:
-      case 4:
-      case 6:
-        // Seconds, minutes, day and year
-        high = (data >> 4) & B00001111;
-        break;
-
       case 2:
         // Hours
         if (data & B00010000) high = 1;
@@ -72,11 +60,17 @@ void Clock::update()
         break;
 
       default:
+//      case 0:
+//      case 1:
+//      case 4:
+//      case 6:
+        // Seconds, minutes, day and year
+        high = (data >> 4) & B00001111;
         break;
     }
     buf[n] = 10*high + low;
   }
-  // Disable rtc
+  // Disable the rtc
   digitalWrite(chipsel, HIGH);
 
   seconds = buf[0];
@@ -85,5 +79,16 @@ void Clock::update()
   day = buf[4];
   month = buf[5];
   year = buf[6];
+}
+
+void Clock::storeDateTime()
+{
+  // Enable the chip
+  digitalWrite(chipsel, LOW);
+  SPI.transfer(0x80);
+  SPI.transfer(B01010000); // seconds
+  SPI.transfer(B01011001); // minutes
+  SPI.transfer(B00011001); // hours
+  digitalWrite(chipsel, HIGH);
 }
 

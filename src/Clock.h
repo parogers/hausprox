@@ -1,7 +1,8 @@
 #ifndef __CLOCK_H__
 #define __CLOCK_H__
 
-/* The interface to the realtime clock chip (DS3234) */
+/* The interface to the realtime clock chip (DS3234). It uses the SPI library to interface with the bus. The
+ * bus is shared with the SD card reader so we have to be careful when using it. */
 class Clock
 {
   private:
@@ -25,6 +26,9 @@ class Clock
   
     // Update the stored time to the current time on the RTC chip
     void update();
+    
+    // Stores the date and time specified by this object in the RTC
+    void storeDateTime();
 };
 
 #endif
