@@ -34,14 +34,16 @@ class CardReader;
 
 class Logger
 {
+  private:
+
   public:
     Logger();
+
+    /* Whether SD logging is enabled */
+    boolean sdEnabled;
     
     /* The realtime clock */
-//    Clock clock;
-    boolean enabled;
-    
-    void begin(int sdPin, int rtcPin);
+    Clock clock;
 
     /* Message format:
      *

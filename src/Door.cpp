@@ -18,7 +18,7 @@
 
 /* Door.cpp */
 
-#include "WProgram.h"
+#include "Arduino.h"
 #include "Door.h"
 
 Door::Door()

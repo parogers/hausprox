@@ -21,7 +21,7 @@
 #ifndef __CARD_DATABASE_H__
 #define __CARD_DATABASE_H__
 
-#include "WProgram.h"
+#include "Arduino.h"
 #include <SD.h>
 
 /* Maximum card serial number length in chars */

@@ -19,10 +19,10 @@
 /* Logger.cpp */
 
 #include "utils.h"
-#include "WProgram.h"
+#include "Arduino.h"
 #include "Logger.h"
 #include "CardReader.h"
-//#include "Clock.h"
+#include "Clock.h"
 
 PROGMEM const prog_char strCardType[] = {"[CARD] "};
 PROGMEM const prog_char strAdminType[] = {"[ADMN] "};
@@ -31,26 +31,14 @@ PROGMEM const prog_char strErrorType[] = {"[ERRR] "};
 PROGMEM const prog_char strDoorType[] = {"[DOOR] "};
 PROGMEM const prog_char strSerialPart[]  = {", serial="};
 PROGMEM const prog_char strBufferPart[] = {", buffer="};
-PROGMEM const prog_char strSDInitFail[] = {"Failed to init the SD card"};
-PROGMEM const prog_char strLogOpenFail[] = {"Failed to open serial log file"};
+PROGMEM const prog_char strLogOpenFail[] = {"Failed to open SD log file\n"};
 
 /* The global logger instance */
 Logger logger;
 
 Logger::Logger()
 {
-}
-
-void Logger::begin(int sdPin, int rtcPin)
-{
-  /* Setup the RTC */
-  //clock.begin(rtcPin);
-  /* Setup the SD card */
-  pinMode(sdPin, OUTPUT);
-  if (! SD.begin(sdPin) ) {
-    print_prog_str(&Serial, strSDInitFail);
-    //logMessage(LOG_MESG, strSDInitFail);
-  }
+  sdEnabled = false;
 }
 
 void Logger::logMessage(int level, const prog_char *msg)
@@ -60,29 +48,29 @@ void Logger::logMessage(int level, const prog_char *msg)
 
 void Logger::logMessage(int level, const prog_char *msg, const char *serial, CardReader *reader)
 {
-  /* Base the name of the log file on the current date */
-  //clock.update();
-  int year = 2011;
-  int month = 10;
-  int day = 04;
-  int hours = 12;
-  int minutes = 1;
-  int seconds = 15;
+  /* Get the current time from our chip */
+  clock.update();
 
   /* We need a buffer to hold the file name (8+1+3=12 chars+null) and later the 
    * timestamp string (20 chars+null) */
   char buf[22];
   /* Extract the last two digits of the year */
-  int year2d = year - 100*(year/100);
-  sprintf(buf, "hp-%d-%02d.log", year2d, month);
+  int year2d = clock.year - 100*(clock.year/100);
+  sprintf(buf, "hp-%d-%02d.log", year2d, clock.month);
 
-  File file = SD.open(buf, FILE_WRITE);
+  /* Log to a file if the SD card is enabled */
+  File file;
+
+  if (sdEnabled) {
+    file = SD.open(buf, FILE_WRITE);
+  }
+  
   if (!file) {
     print_prog_str(&Serial, strLogOpenFail);
   }
   
   // Write out the timestamp
-  sprintf(buf, "%d/%02d/%02d %02d:%02d:%02d ", year, month, day, hours, minutes, seconds);
+  sprintf(buf, "20%02d/%02d/%02d %02d:%02d:%02d ", clock.year, clock.month, clock.day, clock.hours, clock.minutes, clock.seconds);
   Serial.print(buf);
   if (file) {
     file.print(buf);
@@ -127,23 +115,31 @@ void Logger::logMessage(int level, const prog_char *msg, const char *serial, Car
 
   if (reader != NULL) {
     int n, numBits = reader->getBitsRead();
+    char ch;
     print_prog_str(&Serial, strBufferPart);
-    for (n = 0; n < numBits; n++) {
-      Serial.print('0'+reader->getData(n), BYTE);
+    for (n = 0; n < numBits; n++) 
+    {
+      if (reader->getData(n) == 1) ch = '1';
+      else ch = '0';
+      Serial.print(ch);
     }
     Serial.print('\n');
     if (file) {
       print_prog_str(&file, strBufferPart);
-      for (n = 0; n < numBits; n++) {
-        file.print('0'+reader->getData(n), BYTE);
+      for (n = 0; n < numBits; n++) 
+      {
+        if (reader->getData(n) == 1) ch = '1';
+        else ch = '0';
+        file.print(ch);
       }
       file.print('\n');
     }
   }
 
-  Serial.print('\n', BYTE);
-  if (file) file.print('\n', BYTE);
-
-  if (file) file.close();
+  Serial.print('\n');
+  if (file) {
+    file.print('\n');
+    file.close();
+  }
 }
 

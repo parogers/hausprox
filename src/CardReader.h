@@ -20,7 +20,7 @@
 #define __CARD_READER__
 
 #include <avr/pgmspace.h>
-#include "WProgram.h"
+#include "Arduino.h"
 
 #define CARD_SUCCESS              0
 #define CARD_PREMATURE_END       -1

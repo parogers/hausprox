@@ -19,6 +19,8 @@
 #ifndef __DOOR_H__
 #define __DOOR_H__
 
+#include "Arduino.h"
+
 /* Door interface, featuring locking and unlocking */
 class Door
 {

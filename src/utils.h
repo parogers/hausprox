@@ -21,7 +21,7 @@
 
 #include <avr/pgmspace.h>
 #include "Stream.h"
-#include "WProgram.h"
+#include "Arduino.h"
 
 class DebouncedInput
 {
@@ -44,7 +44,6 @@ class DebouncedInput
     boolean getState() { return state; }
     /* Checks whether the (stable) input state changed on the last call to 'update' */
     boolean hasChanged() { return changed; }
-
 };
 
 /* Reads a line of input from the stream up to 'size-1' bytes. Note this string 
@@ -52,6 +51,10 @@ class DebouncedInput
 int read_line(Stream *stream, char *buf, int size);
 /* Prints a string stored in program memory */
 void print_prog_str(Stream *stream, const prog_char *str);
+/* Decodes a binary coded decimal number */
+byte decodeBCD(byte data);
+/* Encode a value as BCD */
+byte encodeBCD(byte data);
 
 #endif
 

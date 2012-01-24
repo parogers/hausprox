@@ -12,23 +12,25 @@ class Clock
   public:
     Clock();
     
-    void begin(int chipsel);
-    
     // The hours, minutes, seconds on the last call to 'update'
-    int seconds;
-    int minutes;
-    int hours;
+    byte seconds;
+    byte minutes;
+    byte hours;
+    byte weekday; // don't trust this value
     
     // The date on the last call to 'update'. Note the year ranges 0-99.
-    int day;
-    int month;
-    int year;
+    byte day;
+    byte month;
+    byte year;
+  
+    // Whether the timechip appears to be working based on the last call to 'update'
+    boolean working;
   
     // Update the stored time to the current time on the RTC chip
     void update();
     
     // Stores the date and time specified by this object in the RTC
-    void storeDateTime();
+    void setDateTime(byte year, byte month, byte day, byte hour, byte mins, byte secs);
 };
 
 #endif

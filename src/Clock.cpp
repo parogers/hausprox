@@ -1,11 +1,15 @@
 /* Clock.cpp */
-#include "WProgram.h"
+#include <Wire.h>
+#include "Arduino.h"
+
+#include "utils.h"
 #include "Clock.h"
-#include <SPI.h>
+
+/* The real-time clock address on the I2C bus */
+#define RTC_ADDRESS       B1101000
 
 Clock::Clock()
 {
-  chipsel = -1;
   seconds = 0;
   minutes = 0;
   hours = 0;
@@ -14,81 +18,48 @@ Clock::Clock()
   year = 0;
 }
 
-void Clock::begin(int sel)
-{
-  chipsel = sel;
-  pinMode(chipsel, OUTPUT);
-  digitalWrite(chipsel, HIGH);
-
-  // Initialize SPI
-  SPI.begin();
-  SPI.setBitOrder(MSBFIRST);
-  SPI.setDataMode(SPI_MODE1);
-}
-
 void Clock::update()
 {
-  int buf[7];
-  int n;
-  
-  if (chipsel == -1) {
-    // Need to call 'begin' first
-    return;
-  }
-  
-  // Enable the rtc chip
-  digitalWrite(chipsel, LOW);
-  // Start reading data from address 0x00 (start of time registers)
-  SPI.transfer(B00000000);
+  Wire.beginTransmission(RTC_ADDRESS);
+  Wire.write((byte)0);
+  Wire.endTransmission();
 
-  for (n = 0; n < 7; n++)
+  Wire.requestFrom(RTC_ADDRESS, 7);
+  if (Wire.available()) 
   {
-    int data = SPI.transfer(0);
-    int low = data & B00001111;
-    int high = 0;
-
-    switch(n) {
-      case 2:
-        // Hours
-        if (data & B00010000) high = 1;
-        else if (data & B00100000) high = 2;
-        break;
-
-      case 5:
-        // Month
-        if (data & B00010000) high = 1;
-        break;
-
-      default:
-//      case 0:
-//      case 1:
-//      case 4:
-//      case 6:
-        // Seconds, minutes, day and year
-        high = (data >> 4) & B00001111;
-        break;
-    }
-    buf[n] = 10*high + low;
+    seconds = decodeBCD(Wire.read());
+    minutes = decodeBCD(Wire.read());
+    hours = decodeBCD(Wire.read());
+    weekday = decodeBCD(Wire.read());
+    day = decodeBCD(Wire.read());
+    month = decodeBCD(Wire.read());
+    year = decodeBCD(Wire.read());
+    working = true;
+  } else {
+    working = false;
   }
-  // Disable the rtc
-  digitalWrite(chipsel, HIGH);
 
-  seconds = buf[0];
-  minutes = buf[1];
-  hours = buf[2];
-  day = buf[4];
-  month = buf[5];
-  year = buf[6];
+  /* Make sure the time data makes sense */
+  /* TODO - log inconsistent data */
+  if (year > 99) year = 0;
+  if (month > 12) month = 0;
+  if (day > 31) day = 0;
+  if (hours > 24) hours = 0;
+  if (minutes > 60) minutes = 0;
+  if (seconds > 60) seconds = 0;
 }
 
-void Clock::storeDateTime()
+void Clock::setDateTime(byte year, byte month, byte day, byte hour, byte mins, byte secs)
 {
-  // Enable the chip
-  digitalWrite(chipsel, LOW);
-  SPI.transfer(0x80);
-  SPI.transfer(B01010000); // seconds
-  SPI.transfer(B01011001); // minutes
-  SPI.transfer(B00011001); // hours
-  digitalWrite(chipsel, HIGH);
+  Wire.beginTransmission(RTC_ADDRESS);
+  Wire.write((byte)0);
+  Wire.write(encodeBCD(secs));
+  Wire.write(encodeBCD(mins));
+  Wire.write(encodeBCD(hour));
+  Wire.write((byte)0); // TODO - fix this
+  Wire.write(encodeBCD(day));
+  Wire.write(encodeBCD(month));
+  Wire.write(encodeBCD(year));
+  Wire.endTransmission();
 }
 

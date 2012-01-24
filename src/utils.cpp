@@ -82,6 +82,16 @@ void print_prog_str(Stream *stream, const prog_char str[])
   char c;
   if(!str) return;
   while((c = pgm_read_byte(str++)) != 0)
-    stream->print(c,BYTE);
+    stream->print(c);
+}
+
+byte decodeBCD(byte data)
+{
+  return 10*(data >> 4) + (data & 0xF);
+}
+
+byte encodeBCD(byte data)
+{
+  return ((data/10) << 4) | ((data%10) & 0xF);
 }
 

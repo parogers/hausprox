@@ -53,7 +53,7 @@
  *
  */
 
-#include "WProgram.h"
+#include "Arduino.h"
 #include "CardReader.h"
 
 // Macro to verify odd parity
@@ -289,7 +289,6 @@ void CardReader::receiveCardData()
   else if (digitalRead(presentPin) == LOW)
   {
     appendData(digitalRead(dataPin));
-    bitsRead++;
   }
 }
 
@@ -314,6 +313,7 @@ boolean CardReader::appendData(int bit)
     return false;
   }
   data[bufferPos++] = bit;
+  bitsRead++;
 /*    
   data[bytePos] |= bit << bitPos;
   bitPos++;
