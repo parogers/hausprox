@@ -1,6 +1,6 @@
 /*
  * haus|prox - Electronic door access control system
- * Copyright (C) 2011  Peter Rogers @thinkhaus
+ * Copyright (C) 2011  Peter Rogers (peter.rogers@gmail.com)
  * 
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -24,11 +24,15 @@
 #include "Arduino.h"
 #include <SD.h>
 
-/* Maximum card serial number length in chars */
-#define MAX_SERIAL_LEN     16
+#define DATABASE_FOUND               0
+#define DATABASE_OPEN_FAILURE       -1
+#define DATABASE_RECORD_TOO_SHORT   -2
+#define DATABASE_RECORD_TOO_LONG    -3
+#define DATABASE_INVALID_RECORD     -4
+#define DATABASE_DOES_NOT_EXIST     -5
 
-/* Maximum record length, including the newline character */
-#define MAX_RECORD_LEN     (MAX_SERIAL_LEN+1+1+1)
+/* Maximum card serial number length in chars */
+#define MAX_SERIAL_LEN       16
 
 class CardInfo
 {
@@ -51,12 +55,14 @@ class CardDatabase
   public:
     CardDatabase();
 
+    static const prog_char *getErrorStr(int code);
+
     boolean begin();
 
     /* Lookup a card in the database. Fills information in 'info'
-     * and returns true if the card is found, otherwise leaves
-     * info unchanged and returns false. */    
-    boolean lookupCard(char *serial, CardInfo &info);
+     * and returns DATABASE_SUCCESS if the card is found, otherwise 
+     * leaves info unchanged and returns the error code. */
+    int lookupCard(char *serial, CardInfo &info);
 
     /* Retreive a card given the slot number */
     boolean getCard(unsigned int slot, CardInfo &info);

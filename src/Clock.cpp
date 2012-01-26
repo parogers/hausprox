@@ -1,4 +1,20 @@
-/* Clock.cpp */
+/*
+ * haus|prox - Electronic door access control system
+ * Copyright (C) 2011  Peter Rogers (peter.rogers@gmail.com)
+ * 
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ * 
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ * 
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
 #include <Wire.h>
 #include "Arduino.h"
 
@@ -18,26 +34,24 @@ Clock::Clock()
   year = 0;
 }
 
-void Clock::update()
+boolean Clock::update()
 {
   Wire.beginTransmission(RTC_ADDRESS);
   Wire.write((byte)0);
   Wire.endTransmission();
 
   Wire.requestFrom(RTC_ADDRESS, 7);
-  if (Wire.available()) 
+  if (Wire.available() == 0) 
   {
-    seconds = decodeBCD(Wire.read());
-    minutes = decodeBCD(Wire.read());
-    hours = decodeBCD(Wire.read());
-    weekday = decodeBCD(Wire.read());
-    day = decodeBCD(Wire.read());
-    month = decodeBCD(Wire.read());
-    year = decodeBCD(Wire.read());
-    working = true;
-  } else {
-    working = false;
+    return false;
   }
+  seconds = decodeBCD(Wire.read());
+  minutes = decodeBCD(Wire.read());
+  hours = decodeBCD(Wire.read());
+  weekday = decodeBCD(Wire.read());
+  day = decodeBCD(Wire.read());
+  month = decodeBCD(Wire.read());
+  year = decodeBCD(Wire.read());
 
   /* Make sure the time data makes sense */
   /* TODO - log inconsistent data */
@@ -47,19 +61,48 @@ void Clock::update()
   if (hours > 24) hours = 0;
   if (minutes > 60) minutes = 0;
   if (seconds > 60) seconds = 0;
+  return true;
 }
 
-void Clock::setDateTime(byte year, byte month, byte day, byte hour, byte mins, byte secs)
+boolean Clock::setDateTime(char *buf)
 {
+  const char *delims = ":-/ ";
+  char *str;
+  
+  str = strtok(buf, delims);
+  if (str == NULL) return false;
+  year = atoi(str);
+  
+  str = strtok(NULL, delims);
+  if (str == NULL) return false;
+  month = atoi(str);
+  
+  str = strtok(NULL, delims);
+  if (str == NULL) return false;
+  day = atoi(str);
+  
+  str = strtok(NULL, delims);
+  if (str == NULL) return false;
+  hours = atoi(str);
+  
+  str = strtok(NULL, delims);
+  if (str == NULL) return false;
+  minutes = atoi(str);
+  
+  str = strtok(NULL, delims);
+  if (str == NULL) return false;
+  seconds = atoi(str);
+  
   Wire.beginTransmission(RTC_ADDRESS);
   Wire.write((byte)0);
-  Wire.write(encodeBCD(secs));
-  Wire.write(encodeBCD(mins));
-  Wire.write(encodeBCD(hour));
-  Wire.write((byte)0); // TODO - fix this
+  Wire.write(encodeBCD(seconds));
+  Wire.write(encodeBCD(minutes));
+  Wire.write(encodeBCD(hours));
+  Wire.write((byte)0); // TODO - fix weekday
   Wire.write(encodeBCD(day));
   Wire.write(encodeBCD(month));
   Wire.write(encodeBCD(year));
   Wire.endTransmission();
+  return true;
 }
 

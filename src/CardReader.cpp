@@ -1,6 +1,6 @@
 /*
  * haus|prox - Electronic door access control system
- * Copyright (C) 2011  Peter Rogers @thinkhaus
+ * Copyright (C) 2011  Peter Rogers (peter.rogers@gmail.com)
  * 
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -274,7 +274,7 @@ const prog_char *CardReader::getErrorStr(int code)
   }
   /* All other unknown errors (16-bit code, at most 5 digits, plus a sign,
    * plus '#', plus null) */
-  static char err[8];
+  char err[8];
   sprintf(err, "#%d", code);
   return err;
 }

@@ -1,6 +1,6 @@
 /*
  * haus|prox - Electronic door access control system
- * Copyright (C) 2011  Peter Rogers @thinkhaus
+ * Copyright (C) 2011  Peter Rogers (peter.rogers@gmail.com)
  * 
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -22,15 +22,18 @@
 #include "CardDatabase.h"
 #include "utils.h"
 
-PROGMEM const prog_char strDatabaseOpenFail[] = {"Failed to open card database\n"};
-PROGMEM const prog_char strInvalidRecord[] = {"Invalid record in card database\n"};
-PROGMEM const prog_char strRecordTooLong[] = {"Database record exceeds maximum length\n"};
-PROGMEM const prog_char strRecordTooShort[] = {"Database record is too short\n"};
+/* Maximum record length, including the newline character */
+#define MAX_RECORD_LEN     (MAX_SERIAL_LEN+1+1+1)
 
-PROGMEM const prog_char strExpectingCardNum[] = {"Expecting card number\n"};
-PROGMEM const prog_char strExpectingEnabledFlag[] = {"Expecting enabled flag\n"};
-//PROGMEM const prog_char strInvalidFacilityCode[] = {"Invalid facility code\n"};
-//PROGMEM const prog_char strInvalidCardNum[] = {"Invalid card number\n"};
+PROGMEM const prog_char strDatabaseRecordFound[] = {"Record found"};
+PROGMEM const prog_char strDatabaseNotFound[] = {"Record not found"};
+PROGMEM const prog_char strDatabaseOpenFail[] = {"Failed to open card database"};
+PROGMEM const prog_char strInvalidRecord[] = {"Invalid record in card database"};
+PROGMEM const prog_char strRecordTooLong[] = {"Database record is too long"};
+PROGMEM const prog_char strRecordTooShort[] = {"Database record is too short"};
+
+//PROGMEM const prog_char strExpectingCardNum[] = {"Expecting card number"};
+//PROGMEM const prog_char strExpectingEnabledFlag[] = {"Expecting enabled flag"};
 
 /* The length of a line in the card database (serial+comma+enabled+newline) */
 #define DB_LINE_LEN     (MAX_SERIAL_LEN+1+1+1)
@@ -62,14 +65,14 @@ boolean CardDatabase::parseCard(char *line, CardInfo &info)
     char *otherStr = strtok(line, delims);
     if (otherStr == NULL) {
       /* Expected card number */
-      print_prog_str(&Serial, strExpectingCardNum);
+//      print_prog_str(&Serial, strExpectingCardNum);
       return false;
     }
 
     char *enabledStr = strtok(NULL, delims);
     if (enabledStr == NULL) {
       /* Expected enabled flag */
-      print_prog_str(&Serial, strExpectingEnabledFlag);
+//      print_prog_str(&Serial, strExpectingEnabledFlag);
       return false;
     }
 
@@ -85,16 +88,17 @@ boolean CardDatabase::parseCard(char *line, CardInfo &info)
     return true;
 }
 
-boolean CardDatabase::lookupCard(char *serial, CardInfo &info)
+int CardDatabase::lookupCard(char *serial, CardInfo &info)
 {
   /* Load the database */
   File file = SD.open("cards.txt", FILE_READ);
   if (!file) {
     /* Register an error */
     /* ... */
-    print_prog_str(&Serial, strDatabaseOpenFail);
-    return false;
+    //print_prog_str(&Serial, strDatabaseOpenFail);
+    return DATABASE_OPEN_FAILURE;
   }
+  int ret = DATABASE_DOES_NOT_EXIST;
   
 //  file.close();
 //  return false;
@@ -107,7 +111,6 @@ boolean CardDatabase::lookupCard(char *serial, CardInfo &info)
    */
   int count = 0;
   char buf[MAX_RECORD_LEN+1];
-  boolean found = false;
 
   while(1)
   {
@@ -129,13 +132,15 @@ boolean CardDatabase::lookupCard(char *serial, CardInfo &info)
     if (n < recordLength) {
       // Bad database entry - record is not long enough
       // TODO - log an error
-      print_prog_str(&Serial, strRecordTooShort);
+      //print_prog_str(&Serial, strRecordTooShort);
+      ret = DATABASE_RECORD_TOO_SHORT;
       break;
     }
 
     if (buf[n-1] != '\n') {
       // Record is too long
-      print_prog_str(&Serial, strRecordTooLong);
+      //print_prog_str(&Serial, strRecordTooLong);
+      ret = DATABASE_RECORD_TOO_LONG;
       break;
     }
 
@@ -145,7 +150,8 @@ boolean CardDatabase::lookupCard(char *serial, CardInfo &info)
     if (! parseCard(buf, info) )
     {
         // Invalid record
-        print_prog_str(&Serial, strInvalidRecord);
+        //print_prog_str(&Serial, strInvalidRecord);
+        ret = DATABASE_INVALID_RECORD;
         break;
     }
     info.slot = count;
@@ -153,13 +159,13 @@ boolean CardDatabase::lookupCard(char *serial, CardInfo &info)
     if (strcmp(info.serial, serial) == 0)
     {
       /* Found this card in the database */
-      found = true;
+      ret = DATABASE_FOUND;
       break;
     }
     count++;
   }
   file.close();
-  return found;
+  return ret;
 }
 
 boolean CardDatabase::getCard(unsigned int slot, CardInfo &info)
@@ -170,100 +176,26 @@ boolean CardDatabase::putCard(unsigned int slot, CardInfo &info)
 {
 }
 
-#if 0
-boolean CardDatabase::lookupCard(unsigned int facility, unsigned int card, CardInfo &info)
+const prog_char *CardDatabase::getErrorStr(int code)
 {
-  /* Load the database */
-  File file = SD.open("cards.txt", FILE_READ);
-  if (!file) {
-    /* Register an error */
-    /* ... */
-    print_prog_str(&Serial, strDatabaseOpenFail);
-    return false;
-  }
-
-  /* Database entries look like:
-   *
-   * facility,card,enabled
-   */
-  char buf[30];
-  boolean found = true;
-
-  while(1)
-  {
-    /* Read in the next card entry */
-    int n = read_line(&file, buf, sizeof(buf));
-    if (n == 0) {
-      // Reached end of file
-      found = false;
-      break;
-    }
-
-    if (buf[n-1] == '\n') {
-      if (n == 1) { 
-        // Blank line
-        continue;
-      }
-      // Remove the newline from the string
-      buf[n-1] = 0;
-    }
-    
-    if (buf[0] == '#') {
-      // Comment line
-      continue;
-    }
-
-    /* Tokenize the string */
-    const char *delims = ", \t";
-
-    /* Note that strtok either returns NULL, or returns a non-empty string */
-    char *facilityStr = strtok(buf, delims);
-    if (facilityStr == NULL) {
-      /* Skip over blank lines */
-      continue;
-    }
-    
-    char *cardStr = strtok(NULL, delims);
-    if (cardStr == NULL) {
-      /* Expected card number */
-      print_prog_str(&Serial, strExpectingCardNum);
-      continue;
-    }
-    
-    char *enabledStr = strtok(NULL, delims);
-    if (enabledStr == NULL) {
-      /* Expected enabled flag */
-      print_prog_str(&Serial, strExpectingEnabledFlag);
-      continue;
-    }
-
-    int otherFacility = atoi(facilityStr);
-    long otherCard = atol(cardStr);
-    
-    if (otherFacility == 0) {
-      /* Failed to parse the facility code */
-      print_prog_str(&Serial, strInvalidFacilityCode);
-      continue;
-    }
-    if (otherCard == 0) {
-      /* Failed to parse the card number */
-      print_prog_str(&Serial, strInvalidCardNum);
-      continue;
-    }
-    
-    if (facility == otherFacility && card == otherCard)
-    {
-      /* Found this card in the database */
-      info.enabled = enabledStr[0] == '1';
-      found = true;
-      break;
-    }
-  }
-
-  file.close();
-  
-  /* Card not found in database */
-  return found;
+  switch(code) {
+    case DATABASE_FOUND:
+      return strDatabaseRecordFound;
+    case  DATABASE_OPEN_FAILURE:
+      return strDatabaseOpenFail;
+    case  DATABASE_RECORD_TOO_SHORT:
+      return strRecordTooShort;
+    case  DATABASE_RECORD_TOO_LONG:
+      return strRecordTooLong;
+    case  DATABASE_INVALID_RECORD:
+      return strInvalidRecord;
+    case  DATABASE_DOES_NOT_EXIST:
+      return strDatabaseNotFound;
+  };
+  /* All other unknown errors (16-bit code, at most 5 digits, plus a sign,
+   * plus '#', plus null) */
+  char err[8];
+  sprintf(err, "#%d", code);
+  return err;
 }
-#endif
 

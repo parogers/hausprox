@@ -1,6 +1,6 @@
 /*
  * haus|prox - Electronic door access control system
- * Copyright (C) 2011  Peter Rogers @thinkhaus
+ * Copyright (C) 2011  Peter Rogers (peter.rogers@gmail.com)
  * 
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -25,7 +25,7 @@
 
 class DebouncedInput
 {
-  private:
+  public:
     // The last stable input state
     boolean state;
     // Whether the input state changed on the last call to 'update'
@@ -35,15 +35,10 @@ class DebouncedInput
     // When the input state was last updated
     unsigned long lastTime;
   
-  public:
     DebouncedInput();
 
     /* Called periodically to update the internal input state */    
     void update(boolean state);
-    /* Returns the stable button state */
-    boolean getState() { return state; }
-    /* Checks whether the (stable) input state changed on the last call to 'update' */
-    boolean hasChanged() { return changed; }
 };
 
 /* Reads a line of input from the stream up to 'size-1' bytes. Note this string 
