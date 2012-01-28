@@ -33,13 +33,20 @@
 /* Strings */
 /***********/
 
-PROGMEM const prog_char strStatusTitle[] = {"haux|prox status\n----------------\n"};
+PROGMEM const prog_char strMainMenu[] = {"\nhaus|prox\n---------\n\n[1] Status\n[2] Manage cards\n[3] Change date/time\n[4] Test SD card\n\n"};
+PROGMEM const prog_char strCardMenu[] = {"\nCard Management\n---------------\n\n[1] Add\n[2] Delete\n[3] Activate/deactive\n[4] Previous page\n[5] Next page\n[9] Back to main\n\n"};
 PROGMEM const prog_char strSDCardStatus[] = {"SD enabled:  "};
 PROGMEM const prog_char strDoorStatus[] = {"Door locked: "};
 PROGMEM const prog_char strOpenHouseStatus[] = {"Open house:  "};
-PROGMEM const prog_char strOpenButtonStatus[] = {"Open button: "};
 PROGMEM const prog_char strYes[] = {"yes"};
 PROGMEM const prog_char strNo[] = {"no"};
+PROGMEM const prog_char strDateTimePrompt[] = {"Enter YY-MM-DD HH:MM:SS\n"};
+PROGMEM const prog_char strDateTimeInvalid[] = {"Invalid entry\n"};
+PROGMEM const prog_char strDateTimeOkay[] = {"Date/time changed\n"};
+PROGMEM const prog_char strAborted[] = {"Aborted\n"};
+PROGMEM const prog_char strSlotPrompt[] = {"Slot number?"};
+PROGMEM const prog_char strCardPrompt[] = {"Card number?"};
+PROGMEM const prog_char strActivePrompt[] = {"Active?"};
 
 #define YESNO(b)      ((b) ? strYes : strNo)
 
@@ -48,6 +55,7 @@ PROGMEM const prog_char strNo[] = {"no"};
 /***********/
 
 HausProx hausProx;
+char input[20];
 
 /*************/
 /* Functions */
@@ -59,6 +67,7 @@ HausProx hausProx;
 void read_input(char *buffer, int maxlen)
 {
   int pos = 0;
+  
   /* We need to leave a space at the end of the string for the null 
    * character, in case the input goes too long */
   while (pos < maxlen-1)
@@ -95,9 +104,9 @@ void read_input(char *buffer, int maxlen)
 void show_login_screen()
 {
   char buffer[10];
-  print_prog_str(&Serial, strWelcomeMessage);
+  print_prog_str(strWelcomeMessage);
   while (1) {
-    print_prog_str(&Serial, strLoginPrompt);
+    print_prog_str(strLoginPrompt);
     read_input(buffer, sizeof(buffer));
     //Serial.println(buffer);
     if (strcmp(buffer, password) == 0) break;
@@ -108,39 +117,106 @@ void show_login_screen()
 }
 #endif
 
-void debug_screen()
+void command_status()
 {
-  char buf[30];
+  /* Display the open house status */
+  print_prog_str(strOpenHouseStatus);
+  print_prog_str(YESNO(hausProx.openHouseMode));
+  Serial.print('\n');
+  /* Display SD card status */
+  print_prog_str(strSDCardStatus);
+  print_prog_str(YESNO(hausProx.sdEnabled));
+  Serial.print('\n');
+  /* Display the door lock status */
+  print_prog_str(strDoorStatus);
+  print_prog_str(YESNO(hausProx.door.isLocked()));
+  Serial.print('\n');
+}
+
+void command_setdate()
+{
+  /* Format: YY-MM-DD HH:MM:SS (24 hour clock) */
   while(1) 
   {
-    read_input(buf, sizeof(buf));
-    if (strcmp(buf, "status") == 0) 
-    {
-      /* Display some debug information */
-      print_prog_str(&Serial, strStatusTitle);
-      /* Display the open house status */
-      print_prog_str(&Serial, strOpenHouseStatus);
-      print_prog_str(&Serial, YESNO(hausProx.openHouseMode));
-      Serial.print('\n');
-      /* Display the open house button status */
-      print_prog_str(&Serial, strOpenButtonStatus);
-      print_prog_str(&Serial, YESNO(hausProx.openHouseButton.state));
-      Serial.print('\n');
-      /* Display SD card status */
-      print_prog_str(&Serial, strSDCardStatus);
-      print_prog_str(&Serial, YESNO(hausProx.sdEnabled));
-      Serial.print('\n');
-      /* Display the door lock status */
-      print_prog_str(&Serial, strDoorStatus);
-      print_prog_str(&Serial, YESNO(hausProx.door.isLocked()));
-      Serial.print('\n');
-      Serial.print('\n');
-    } 
-    else if (strncmp(buf, "settime", 7) == 0)
-    {
-      /* Setting the time. Format: YY-MM-DD HH:MM:SS (24 hour clock) */
-      hausProx.logger.clock.setDateTime("12-01-20 19:38:00");
-      //hausProx.logger.clock.setDateTime(12, 01, 20, 19, 38, 00);
+    print_prog_str(strDateTimePrompt);
+    read_input(input, sizeof(input));
+    if (input[0] == 0) {
+      // User cancelled
+      print_prog_str(strAborted);
+      break;
+    }
+    if (logger.clock.setDateTime(input)) {
+      // Time was set successfully
+      logger.logMessage(LOG_ADMIN, strDateTimeOkay);
+      break;
+    }
+    // There was a problem setting the time
+    print_prog_str(strDateTimeInvalid);
+  }
+}
+
+void command_test_sd()
+{
+  /* Check if the card is physically plugged in */
+  
+  /* Try to initialize the SD library */
+//  if (!SD.begin()
+  
+  /* Try to access the card database */
+
+}
+
+void card_management_menu()
+{
+  while(1)
+  {
+    print_prog_str(strCardMenu);
+    read_input(input, sizeof(input));
+    switch(input[0]) {
+      case '1':
+        // Add card entry
+        break;
+      case '2':
+        // Remove entry
+        break;
+      case '3':
+        // Edit entry
+        print_prog_str(strSlotPrompt);
+        read_input(input, sizeof(input));
+        break;
+      case '4':
+        // Previous page
+        break;
+      case '5':
+        // Next page
+        break;
+      case '9':
+        // Back to main menu
+        return;
+    }
+  }
+}
+
+void main_menu()
+{
+  while(1) 
+  {
+    /* Display the main menu */
+    print_prog_str(strMainMenu);
+    read_input(input, sizeof(input));
+    switch(input[0]) {
+      case '1':
+        command_status();
+        break;
+      case '2':
+        card_management_menu();
+        break;
+      case '3':
+        command_setdate();
+        break;
+      case '4':
+        command_test_sd();
+        break;
     }
   }
 }
@@ -182,6 +258,6 @@ void setup()
 
 void loop()
 {
-  debug_screen();
+  main_menu();
 }
 

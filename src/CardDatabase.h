@@ -57,8 +57,6 @@ class CardDatabase
 
     static const prog_char *getErrorStr(int code);
 
-    boolean begin();
-
     /* Lookup a card in the database. Fills information in 'info'
      * and returns DATABASE_SUCCESS if the card is found, otherwise 
      * leaves info unchanged and returns the error code. */

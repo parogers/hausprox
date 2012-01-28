@@ -63,11 +63,14 @@ void Logger::logMessage(int level, const prog_char *msg, const char *serial, Car
 
   if (sdEnabled) {
     file = SD.open(buf, FILE_WRITE);
+    if (!sdEnabled) {
+      /* Register an error */
+    }
   }
   
-  if (!file) {
-    print_prog_str(&Serial, strLogOpenFail);
-  }
+//  if (!file) {
+//    print_prog_str(&Serial, strLogOpenFail);
+//  }
   
   // Write out the timestamp
   sprintf(buf, "20%02d/%02d/%02d %02d:%02d:%02d ", clock.year, clock.month, clock.day, clock.hours, clock.minutes, clock.seconds);
@@ -95,8 +98,8 @@ void Logger::logMessage(int level, const prog_char *msg, const char *serial, Car
       strType = strMessageType;
       break;
   }
-  print_prog_str(&Serial, strType);
-  print_prog_str(&Serial, msg);
+  print_prog_str(strType);
+  print_prog_str(msg);
 
   if (file) {
     print_prog_str(&file, strType);
@@ -104,7 +107,7 @@ void Logger::logMessage(int level, const prog_char *msg, const char *serial, Car
   }
 
   if (serial != NULL) {
-    print_prog_str(&Serial, strSerialPart);
+    print_prog_str(strSerialPart);
     Serial.print(serial);
     
     if (file) {
@@ -116,7 +119,7 @@ void Logger::logMessage(int level, const prog_char *msg, const char *serial, Car
   if (reader != NULL) {
     int n, numBits = reader->getBitsRead();
     char ch;
-    print_prog_str(&Serial, strBufferPart);
+    print_prog_str(strBufferPart);
     for (n = 0; n < numBits; n++) 
     {
       if (reader->getData(n) == 1) ch = '1';

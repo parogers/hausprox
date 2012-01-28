@@ -27,13 +27,10 @@
 
 PROGMEM const prog_char strDatabaseRecordFound[] = {"Record found"};
 PROGMEM const prog_char strDatabaseNotFound[] = {"Record not found"};
-PROGMEM const prog_char strDatabaseOpenFail[] = {"Failed to open card database"};
-PROGMEM const prog_char strInvalidRecord[] = {"Invalid record in card database"};
-PROGMEM const prog_char strRecordTooLong[] = {"Database record is too long"};
-PROGMEM const prog_char strRecordTooShort[] = {"Database record is too short"};
-
-//PROGMEM const prog_char strExpectingCardNum[] = {"Expecting card number"};
-//PROGMEM const prog_char strExpectingEnabledFlag[] = {"Expecting enabled flag"};
+PROGMEM const prog_char strDatabaseOpenFail[] = {"Failed to open card DB"};
+PROGMEM const prog_char strInvalidRecord[] = {"Invalid record in card DB"};
+PROGMEM const prog_char strRecordTooLong[] = {"Record too long"};
+PROGMEM const prog_char strRecordTooShort[] = {"Record too short"};
 
 /* The length of a line in the card database (serial+comma+enabled+newline) */
 #define DB_LINE_LEN     (MAX_SERIAL_LEN+1+1+1)
@@ -41,19 +38,6 @@ PROGMEM const prog_char strRecordTooShort[] = {"Database record is too short"};
 CardDatabase::CardDatabase()
 {
   recordLength = 12;
-}
-
-boolean CardDatabase::begin()
-{
-#if 0
-  /* Make sure we can access the database file */
-  File file = SD.open("cards.txt", FILE_READ);
-  if (!file) {
-    /* Register an error */
-    return;
-  }
-  file.close();
-#endif
 }
 
 boolean CardDatabase::parseCard(char *line, CardInfo &info)

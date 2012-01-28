@@ -85,6 +85,11 @@ void print_prog_str(Stream *stream, const prog_char str[])
     stream->print(c);
 }
 
+void print_prog_str(const prog_char str[])
+{
+  print_prog_str(&Serial, str);
+}
+
 byte decodeBCD(byte data)
 {
   return 10*(data >> 4) + (data & 0xF);

@@ -46,6 +46,8 @@ class DebouncedInput
 int read_line(Stream *stream, char *buf, int size);
 /* Prints a string stored in program memory */
 void print_prog_str(Stream *stream, const prog_char *str);
+
+void print_prog_str(const prog_char *str);
 /* Decodes a binary coded decimal number */
 byte decodeBCD(byte data);
 /* Encode a value as BCD */

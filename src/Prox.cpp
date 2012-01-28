@@ -46,27 +46,27 @@
 /* Strings */
 /***********/
 
-PROGMEM const prog_char strWelcomeMessage[] = {
+/*PROGMEM const prog_char strWelcomeMessage[] = {
   "* * * * * * * * * * * * * * * * * * * * * *\n"\
   "Welcome to the haus|prox door access system\n"\
   "* * * * * * * * * * * * * * * * * * * * * *\n\n"\
-  "Please login to continue\n\n"};
+  "Please login to continue\n\n"};*/
 PROGMEM const prog_char strCardError[] = {"Error reading card"};
-PROGMEM const prog_char strValidOpenHouse[] = {"Admit entry (open house mode active)"};
+PROGMEM const prog_char strValidOpenHouse[] = {"Admit entry (open house active)"};
 PROGMEM const prog_char strAdmitEntry[] = {"Admit entry"};
 PROGMEM const prog_char strDenyDisabledCard[] = {"Deny disabled card"};
 PROGMEM const prog_char strDenyUnregCard[] = {"Deny unregistered card"};
 PROGMEM const prog_char strAdminDenied[] = {"Admin access denied"};
 PROGMEM const prog_char strBootupMessage[] = {"haus|prox bootup"};
-PROGMEM const prog_char strLoginMessage[] = {"Admin login"};
-PROGMEM const prog_char strLoginPrompt[] = {"\nLogin: "};
-PROGMEM const prog_char strOpenHouseOn[] = {"Turn on open house mode"};
-PROGMEM const prog_char strOpenHouseOff[] = {"Turn off open house mode"};
-PROGMEM const prog_char strOpenHouseExpired[] = {"Open house mode expired"};
-PROGMEM const prog_char strDoorLocked[] = {"Door is now locked"};
-PROGMEM const prog_char strDoorUnlocked[] = {"Door is now unlocked"};
+//PROGMEM const prog_char strLoginMessage[] = {"Admin login"};
+//PROGMEM const prog_char strLoginPrompt[] = {"\nLogin: "};
+PROGMEM const prog_char strOpenHouseOn[] = {"Turn on open house"};
+PROGMEM const prog_char strOpenHouseOff[] = {"Turn off open house"};
+PROGMEM const prog_char strOpenHouseExpired[] = {"Open house expired"};
+PROGMEM const prog_char strDoorLocked[] = {"Door is locked"};
+PROGMEM const prog_char strDoorUnlocked[] = {"Door is unlocked"};
 PROGMEM const prog_char strDoorAlreadyUnlocked[] = {"Door is already unlocked"};
-PROGMEM const prog_char strSDInitFail[] = {"Failed to init the SD card"};
+PROGMEM const prog_char strSDInitFail[] = {"Failed to init SD card"};
 PROGMEM const prog_char strCardBuffer[] = {"Card buffer contents"};
 
 /*********/
@@ -80,7 +80,6 @@ HausProx::HausProx()
   openHouseDuration = 3*60*60;
   doorEntryDuration = 10;
   lastDoorLocked = true;
-
 //  strcpy(password, "123");
 }
 
@@ -94,11 +93,6 @@ void HausProx::begin()
   Wire.begin();
 
   pinMode(SD_CHIPSEL, OUTPUT);
-  if (! SD.begin(SD_CHIPSEL) ) {
-    sdEnabled = false;
-  } else {
-    sdEnabled = true;
-  }
 
   /* Setup the card reader */
   reader.begin(DATA, CLOCK, PRESENT, BEEP);
@@ -106,9 +100,7 @@ void HausProx::begin()
   /* Setup the door control */
   door.begin(DOOR_LATCH);
 
-  /* Let the logger know if it's using the SD card or not */
-  logger.sdEnabled = sdEnabled;
-
+  initSDCard();
   if (! sdEnabled ) {
     /* Log that the SD is not enabled. Of course, this won't log to the SD card but
      * it will write the message to the serial port. */
@@ -125,6 +117,17 @@ void HausProx::begin()
   reader.setBeep(true);
   delay(500);
   reader.setBeep(false);
+}
+
+void HausProx::initSDCard()
+{
+  if (! SD.begin(SD_CHIPSEL) ) {
+    sdEnabled = false;
+  } else {
+    sdEnabled = true;
+  }
+  /* Let the logger know if it's using the SD card or not */
+  logger.sdEnabled = sdEnabled;
 }
 
 /* Locks the door and logs a message */

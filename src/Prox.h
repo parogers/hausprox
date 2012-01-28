@@ -37,7 +37,6 @@ class HausProx
     CardReader     reader;
     CardDatabase   database;
     Door           door;
-    Logger         logger;
     
     /* Whether we are in "open house" mode, where the door is kept open
      * for a pre-determined amount of time */
@@ -63,6 +62,7 @@ class HausProx
     HausProx();
 
     void begin();
+    void initSDCard();
 
     void lock_door();
     void unlock_door(long duration);

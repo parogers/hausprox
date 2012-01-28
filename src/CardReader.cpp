@@ -59,14 +59,14 @@
 // Macro to verify odd parity
 #define ODD_PARITY(d0,d1,d2,d3,parity)   (((d0)+(d1)+(d2)+(d3)+(parity)) % 2 == 1)
 
-PROGMEM const prog_char strSuccess[] = {"Success"};
+PROGMEM const prog_char strSuccess[] = {"OK"};
 PROGMEM const prog_char strPrematureEnd[] = {"Premature end of data"};
 PROGMEM const prog_char strParityFail[] = {"Parity failure"};
-PROGMEM const prog_char strInvalidBegin[] = {"Invalid beginning segment"};
+PROGMEM const prog_char strInvalidBegin[] = {"Invalid start segment"};
 PROGMEM const prog_char strLRCParity[] = {"LRC parity failure"};
 PROGMEM const prog_char strLRCFail[] = {"LRC failure"};
 PROGMEM const prog_char strTrailingZeros[] = {"Expected trailing zeros"};
-PROGMEM const prog_char strPaddingFail[] = {"Data padding failure"};
+PROGMEM const prog_char strPaddingFail[] = {"Data pad fail"};
 PROGMEM const prog_char strLeadingZeros[] = {"Leading zeros expected"};
 
 /**************/
