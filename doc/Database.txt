@@ -1,3 +1,19 @@
+RFID card data
+--------------
+
+Haus|prox supports cards that are based on the 26-bit Weigand open 
+card format. The data returned by these cards includes:
+
+* Starting parity bit
+* 8-bit facility code
+* 16-bit card number
+* Trailing parity bit
+
+You can find some general information about various card formats
+supplied by HID:
+
+	http://www.hidglobal.com/page.php?page_id=10
+
 Database Format
 ---------------
 
