@@ -1,0 +1,21 @@
+Database Format
+---------------
+
+The card database is stored on an SD card in a file called "cards.txt".
+This is a plain-text file with lines of fixed length, one record per 
+line. Each line must be exactly 12 bytes long (including newline) 
+with the format:
+
+	<facility>-<card>,<enabled><newline>
+
+Where:
+
+	<facility> = three digit facility code, zero padded if needed
+	<card> = five digit card number
+	<enabled> = 1 or 0 indicating whether the card has access
+	<newline> = new-line character (ie ascii char #10)
+
+Example:
+ 
+	123-45678,1
+
