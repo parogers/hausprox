@@ -23,21 +23,62 @@
 #include "utils.h"
 
 /* Maximum record length, including the newline character */
-#define MAX_RECORD_LEN     (MAX_SERIAL_LEN+1+1+1)
+#define RECORD_LINE_LEN     (MAX_SERIAL_LEN+1+1+1)
 
-PROGMEM const prog_char strDatabaseRecordFound[] = {"Record found"};
+PROGMEM const prog_char strDatabaseSuccess[] = {"Success"};
 PROGMEM const prog_char strDatabaseNotFound[] = {"Record not found"};
 PROGMEM const prog_char strDatabaseOpenFail[] = {"Failed to open card DB"};
 PROGMEM const prog_char strInvalidRecord[] = {"Invalid record in card DB"};
 PROGMEM const prog_char strRecordTooLong[] = {"Record too long"};
 PROGMEM const prog_char strRecordTooShort[] = {"Record too short"};
+PROGMEM const prog_char strActive[] = {" - active"};
+PROGMEM const prog_char strDisabled[] = {" - disabled"};
 
 /* The length of a line in the card database (serial+comma+enabled+newline) */
-#define DB_LINE_LEN     (MAX_SERIAL_LEN+1+1+1)
+#define RECORD_LEN     (SERIAL_LEN+1+1+1)
 
 CardDatabase::CardDatabase()
 {
-  recordLength = 12;
+}
+
+int CardDatabase::readCard(File *file, CardInfo &info)
+{
+  /* Read in the next card entry */
+  char buf[RECORD_LEN+1];
+  int n = read_line(file, buf, sizeof(buf));
+
+  if (n == 0) {
+    // Reached end of file
+    return DATABASE_EOF;
+  }
+  else if (buf[0] == '\n') {
+    // Blank line of text
+    return DATABASE_EOF;
+  }
+
+  if (n < RECORD_LEN) {
+    // Bad database entry - record is not long enough
+    // TODO - log an error
+    //print_prog_str(&Serial, strRecordTooShort);
+    return DATABASE_RECORD_TOO_SHORT;
+  }
+
+  if (buf[n-1] != '\n') {
+    // Record is too long
+    //print_prog_str(&Serial, strRecordTooLong);
+    return DATABASE_RECORD_TOO_LONG;
+  }
+
+  // Remove the newline from the string
+  buf[n-1] = 0;
+
+  if (! parseCard(buf, info) )
+  {
+      // Invalid record
+      //print_prog_str(&Serial, strInvalidRecord);
+      return DATABASE_INVALID_RECORD;
+  }
+  return DATABASE_SUCCESS;
 }
 
 boolean CardDatabase::parseCard(char *line, CardInfo &info)
@@ -77,12 +118,8 @@ int CardDatabase::lookupCard(char *serial, CardInfo &info)
   /* Load the database */
   File file = SD.open("cards.txt", FILE_READ);
   if (!file) {
-    /* Register an error */
-    /* ... */
-    //print_prog_str(&Serial, strDatabaseOpenFail);
     return DATABASE_OPEN_FAILURE;
   }
-  int ret = DATABASE_DOES_NOT_EXIST;
   
 //  file.close();
 //  return false;
@@ -93,60 +130,29 @@ int CardDatabase::lookupCard(char *serial, CardInfo &info)
    * serial,enabled\n       (serial=9 chars, enabled=1 char, plus newline)
    * ...
    */
-  int count = 0;
-  char buf[MAX_RECORD_LEN+1];
+  int count = 1;
 
+  int ret;
   while(1)
   {
-    /* Read in the next card entry */
-    int n = read_line(&file, buf, recordLength+1);
-
-    if (n == 0) {
-      // Reached end of file
+    // Read the next card entry
+    ret = readCard(&file, info);
+    
+    // If we reach the end of file, the record wasn't found
+    if (ret == DATABASE_EOF) {
+      ret = DATABASE_DOES_NOT_EXIST;
       break;
     }
-    else if (buf[0] == '\n') {
-      // Blank line of text
-      break;
-    }
-
-//    Serial.print("read: ");
-//    Serial.println(buf);
-
-    if (n < recordLength) {
-      // Bad database entry - record is not long enough
-      // TODO - log an error
-      //print_prog_str(&Serial, strRecordTooShort);
-      ret = DATABASE_RECORD_TOO_SHORT;
-      break;
-    }
-
-    if (buf[n-1] != '\n') {
-      // Record is too long
-      //print_prog_str(&Serial, strRecordTooLong);
-      ret = DATABASE_RECORD_TOO_LONG;
-      break;
-    }
-
-    // Remove the newline from the string
-    buf[n-1] = 0;
-
-    if (! parseCard(buf, info) )
-    {
-        // Invalid record
-        //print_prog_str(&Serial, strInvalidRecord);
-        ret = DATABASE_INVALID_RECORD;
-        break;
-    }
-    info.slot = count;
+    // If we hit an error reading a record, pass that error back on return
+    if (ret != DATABASE_SUCCESS) break;
+    info.slot = count++;
 
     if (strcmp(info.serial, serial) == 0)
     {
-      /* Found this card in the database */
-      ret = DATABASE_FOUND;
+      /* Found the card in the database */
+      ret = DATABASE_SUCCESS;
       break;
     }
-    count++;
   }
   file.close();
   return ret;
@@ -154,17 +160,36 @@ int CardDatabase::lookupCard(char *serial, CardInfo &info)
 
 boolean CardDatabase::getCard(unsigned int slot, CardInfo &info)
 {
+  File file = SD.open("cards.txt", FILE_READ);
+  if (!file) {
+    return false;
+  }
+  
+  if (!file.seek((slot-1)*RECORD_LEN)) {
+    file.close();
+    return false;
+  }
+  
+  int ret = readCard(&file, info);
+  file.close();
+
+  if (ret == DATABASE_SUCCESS) {
+    info.slot = slot;
+    return true;
+  }
+  return false;
 }
 
-boolean CardDatabase::putCard(unsigned int slot, CardInfo &info)
+int CardDatabase::putCard(unsigned int slot, CardInfo &info)
 {
+  return DATABASE_SUCCESS;
 }
 
 const prog_char *CardDatabase::getErrorStr(int code)
 {
   switch(code) {
-    case DATABASE_FOUND:
-      return strDatabaseRecordFound;
+    case DATABASE_SUCCESS:
+      return strDatabaseSuccess;
     case  DATABASE_OPEN_FAILURE:
       return strDatabaseOpenFail;
     case  DATABASE_RECORD_TOO_SHORT:
@@ -181,5 +206,43 @@ const prog_char *CardDatabase::getErrorStr(int code)
   char err[8];
   sprintf(err, "#%d", code);
   return err;
+}
+
+void CardDatabase::printRecords()
+{
+  /* Load the database */
+  File file = SD.open("cards.txt", FILE_READ);
+  if (!file) {
+    println_prog_str(getErrorStr(DATABASE_OPEN_FAILURE));
+    return;
+  }
+
+  CardInfo info;
+  int count=1;
+  while(1)
+  {
+    CardInfo info;
+    int ret = readCard(&file, info);
+
+    if (ret == DATABASE_EOF) break;
+    if (ret != DATABASE_SUCCESS) {
+      println_prog_str(getErrorStr(ret));
+      break;
+    }
+
+    info.slot = count++;
+
+    Serial.print('[');
+    Serial.print((int)info.slot);
+    Serial.print(']');
+    Serial.print(' ');
+    Serial.print(info.serial);
+    if (info.enabled) {
+      println_prog_str(strActive);
+    } else {
+      println_prog_str(strDisabled);
+    }
+  }
+  file.close();
 }
 

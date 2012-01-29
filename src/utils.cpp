@@ -85,6 +85,12 @@ void print_prog_str(Stream *stream, const prog_char str[])
     stream->print(c);
 }
 
+void println_prog_str(const prog_char str[])
+{
+  print_prog_str(str);
+  Serial.print('\n');
+}
+
 void print_prog_str(const prog_char str[])
 {
   print_prog_str(&Serial, str);
@@ -98,5 +104,11 @@ byte decodeBCD(byte data)
 byte encodeBCD(byte data)
 {
   return ((data/10) << 4) | ((data%10) & 0xF);
+}
+
+void trim(char *buf)
+{
+  int n = strlen(buf)-1;
+  while(n > 0 && buf[n] == '\n') buf[n--] = 0;
 }
 

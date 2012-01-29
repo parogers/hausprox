@@ -37,8 +37,6 @@
 
 #define OPEN_HOUSE_BTN    7
 
-/* Chip select line for the RTC */
-#define RTC_CHIPSEL       9
 /* Chip select for the SD card */
 #define SD_CHIPSEL        10
 
@@ -213,7 +211,7 @@ void HausProx::handle_card_scanned()
     logger.logMessage(LOG_CARD, strDenyUnregCard, serial);
     return;
 
-  } else if (ret != DATABASE_FOUND) {
+  } else if (ret != DATABASE_SUCCESS) {
     /* Log the error */
     logger.logMessage(LOG_ERROR, database.getErrorStr(ret), serial);
     return;

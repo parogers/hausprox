@@ -73,7 +73,7 @@ void Logger::logMessage(int level, const prog_char *msg, const char *serial, Car
 //  }
   
   // Write out the timestamp
-  sprintf(buf, "20%02d/%02d/%02d %02d:%02d:%02d ", clock.year, clock.month, clock.day, clock.hours, clock.minutes, clock.seconds);
+  clock.formatDateTime(buf, sizeof(buf));
   Serial.print(buf);
   if (file) {
     file.print(buf);

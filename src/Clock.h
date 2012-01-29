@@ -47,6 +47,9 @@ class Clock
     // like "YY-MM-DD HH:MM:SS". This function returns true if the string parses correctly, 
     // false otherwise. Note the input buffer is modified.
     boolean setDateTime(char *buf);
+
+    // Format the date/time in the buffer
+    void formatDateTime(char *buf, int len);
 };
 
 #endif

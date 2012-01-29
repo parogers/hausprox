@@ -24,32 +24,35 @@
 #include "Arduino.h"
 #include <SD.h>
 
-#define DATABASE_FOUND               0
+#define DATABASE_SUCCESS             0
 #define DATABASE_OPEN_FAILURE       -1
 #define DATABASE_RECORD_TOO_SHORT   -2
 #define DATABASE_RECORD_TOO_LONG    -3
 #define DATABASE_INVALID_RECORD     -4
 #define DATABASE_DOES_NOT_EXIST     -5
+#define DATABASE_EOF                -6
 
-/* Maximum card serial number length in chars */
-#define MAX_SERIAL_LEN       16
+#define SERIAL_LEN       (3+1+5)
 
 class CardInfo
 {
   public:
-    char serial[MAX_SERIAL_LEN+1];
+    char serial[SERIAL_LEN+1];
     unsigned int slot;
     boolean enabled;
 };
 
+typedef void (*RecordCallback)(CardInfo*);
+
 class CardDatabase
 {
   private:
-    /* The length of a record in the database (including the newline character) */
-    int recordLength;
     /* The error code (zero = no error) */
     int error;
 
+    /* Reads a card record from the file stream. On success, this function returns DATABASE_SUCCESS and
+     * fills in 'info'. Otherwise it returns one of the DATABASE_* error codes */
+    int readCard(File *file, CardInfo &info);
     boolean parseCard(char *line, CardInfo &info);
 
   public:
@@ -66,11 +69,13 @@ class CardDatabase
     boolean getCard(unsigned int slot, CardInfo &info);
 
     /* Saves a card in the database */
-    boolean putCard(unsigned int slot, CardInfo &info);
+    int putCard(unsigned int slot, CardInfo &info);
 
     /* Inserts card data into the database at the first empty slot, or appended if
      * there are no slots available. */
     boolean insertCard(CardInfo &info);
+
+    void printRecords();
 
     /* Lookup a card in the database. Fills information in 'info'
      * and returns true if the card is found, otherwise leaves

@@ -46,12 +46,16 @@ class DebouncedInput
 int read_line(Stream *stream, char *buf, int size);
 /* Prints a string stored in program memory */
 void print_prog_str(Stream *stream, const prog_char *str);
-
+/* Prints a string to the serial port */
 void print_prog_str(const prog_char *str);
+/* Prints a string with an additional newline character */
+void println_prog_str(const prog_char *str);
 /* Decodes a binary coded decimal number */
 byte decodeBCD(byte data);
 /* Encode a value as BCD */
 byte encodeBCD(byte data);
+/* Trims newline characters off of the given string */
+void trim(char *buf);
 
 #endif
 

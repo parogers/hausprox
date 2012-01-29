@@ -106,3 +106,11 @@ boolean Clock::setDateTime(char *buf)
   return true;
 }
 
+void Clock::formatDateTime(char *buf, int buflen)
+{
+  // Make sure the buffer is large enough to fit the data
+  if (buflen >= 20) {
+    sprintf(buf, "20%02d/%02d/%02d %02d:%02d:%02d ", year, month, day, hours, minutes, seconds);
+  }
+}
+
