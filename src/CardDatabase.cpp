@@ -22,20 +22,38 @@
 #include "CardDatabase.h"
 #include "utils.h"
 
-/* Maximum record length, including the newline character */
-#define RECORD_LINE_LEN     (MAX_SERIAL_LEN+1+1+1)
-
 PROGMEM const prog_char strDatabaseSuccess[] = {"Success"};
+PROGMEM const prog_char strDatabaseFailure[] = {"Failure"};
 PROGMEM const prog_char strDatabaseNotFound[] = {"Record not found"};
 PROGMEM const prog_char strDatabaseOpenFail[] = {"Failed to open card DB"};
 PROGMEM const prog_char strInvalidRecord[] = {"Invalid record in card DB"};
 PROGMEM const prog_char strRecordTooLong[] = {"Record too long"};
 PROGMEM const prog_char strRecordTooShort[] = {"Record too short"};
+PROGMEM const prog_char strDatabaseEOF[] = {"Database EOF"};
+
 PROGMEM const prog_char strActive[] = {" - active"};
 PROGMEM const prog_char strDisabled[] = {" - disabled"};
+PROGMEM const prog_char strBlank[] = {" - blank"};
 
 /* The length of a line in the card database (serial+comma+enabled+newline) */
 #define RECORD_LEN     (SERIAL_LEN+1+1+1)
+
+/* The name of the card database */
+#define DB_FILE        "cards.txt"
+
+/* The character to use when blanking out card records */
+#define BLANK_CHAR     'Z'
+
+/***********/
+/* Globals */
+/***********/
+
+/* A buffer for storing record data temporarily */
+char recordBuf[RECORD_LEN+1];
+
+/*************/
+/* Functions */
+/*************/
 
 CardDatabase::CardDatabase()
 {
@@ -44,14 +62,13 @@ CardDatabase::CardDatabase()
 int CardDatabase::readCard(File *file, CardInfo &info)
 {
   /* Read in the next card entry */
-  char buf[RECORD_LEN+1];
-  int n = read_line(file, buf, sizeof(buf));
+  int n = read_line(file, recordBuf, sizeof(recordBuf));
 
   if (n == 0) {
     // Reached end of file
     return DATABASE_EOF;
   }
-  else if (buf[0] == '\n') {
+  else if (recordBuf[0] == '\n') {
     // Blank line of text
     return DATABASE_EOF;
   }
@@ -63,16 +80,16 @@ int CardDatabase::readCard(File *file, CardInfo &info)
     return DATABASE_RECORD_TOO_SHORT;
   }
 
-  if (buf[n-1] != '\n') {
+  if (recordBuf[n-1] != '\n') {
     // Record is too long
     //print_prog_str(&Serial, strRecordTooLong);
     return DATABASE_RECORD_TOO_LONG;
   }
 
   // Remove the newline from the string
-  buf[n-1] = 0;
+  recordBuf[n-1] = 0;
 
-  if (! parseCard(buf, info) )
+  if (! parseCard(recordBuf, info) )
   {
       // Invalid record
       //print_prog_str(&Serial, strInvalidRecord);
@@ -90,23 +107,21 @@ boolean CardDatabase::parseCard(char *line, CardInfo &info)
     char *otherStr = strtok(line, delims);
     if (otherStr == NULL) {
       /* Expected card number */
-//      print_prog_str(&Serial, strExpectingCardNum);
       return false;
     }
 
     char *enabledStr = strtok(NULL, delims);
     if (enabledStr == NULL) {
       /* Expected enabled flag */
-//      print_prog_str(&Serial, strExpectingEnabledFlag);
       return false;
     }
 
     // Trim the spaces off of the card serial number
-    while (*otherStr == ' ') otherStr++;
+    //while (*otherStr == ' ') otherStr++;
 
     // Trim the end of the string as well
-    char *ptr = otherStr + strlen(otherStr)-1;
-    while (ptr > otherStr && *ptr == ' ') *ptr = 0;
+//    char *ptr = otherStr + strlen(otherStr)-1;
+//    while (ptr > otherStr && *ptr == ' ') *ptr = 0;
 
     strcpy(info.serial, otherStr); // TODO - strncpy
     info.enabled = (enabledStr[0] == '1');
@@ -116,14 +131,11 @@ boolean CardDatabase::parseCard(char *line, CardInfo &info)
 int CardDatabase::lookupCard(char *serial, CardInfo &info)
 {
   /* Load the database */
-  File file = SD.open("cards.txt", FILE_READ);
+  File file = SD.open(DB_FILE, FILE_READ);
   if (!file) {
     return DATABASE_OPEN_FAILURE;
   }
   
-//  file.close();
-//  return false;
-
   /* Database rows are fixed width, with data encoded in readable ascii. Note
    * every record must end in a newline character.
    *
@@ -132,7 +144,7 @@ int CardDatabase::lookupCard(char *serial, CardInfo &info)
    */
   int count = 1;
 
-  int ret;
+  int ret = DATABASE_EOF;
   while(1)
   {
     // Read the next card entry
@@ -158,16 +170,19 @@ int CardDatabase::lookupCard(char *serial, CardInfo &info)
   return ret;
 }
 
-boolean CardDatabase::getCard(unsigned int slot, CardInfo &info)
+int CardDatabase::getCard(unsigned int slot, CardInfo &info)
 {
-  File file = SD.open("cards.txt", FILE_READ);
+  File file = SD.open(DB_FILE, FILE_READ);
   if (!file) {
-    return false;
+    return DATABASE_OPEN_FAILURE;
   }
   
-  if (!file.seek((slot-1)*RECORD_LEN)) {
+  unsigned long size = file.size();
+  unsigned long off = slot*RECORD_LEN;
+  
+  if (slot < 0 || off >= size || !file.seek(off)) {
     file.close();
-    return false;
+    return DATABASE_EOF;
   }
   
   int ret = readCard(&file, info);
@@ -175,14 +190,62 @@ boolean CardDatabase::getCard(unsigned int slot, CardInfo &info)
 
   if (ret == DATABASE_SUCCESS) {
     info.slot = slot;
-    return true;
   }
-  return false;
+  return ret;
 }
 
 int CardDatabase::putCard(unsigned int slot, CardInfo &info)
 {
+  /* Verify the serial number is okay */
+  if (strlen(info.serial) != SERIAL_LEN) {
+    return DATABASE_INVALID_RECORD;
+  }
+
+  /* Load the database */
+  File file = SD.open(DB_FILE, FILE_WRITE);
+  if (!file) {
+    return DATABASE_OPEN_FAILURE;
+  }
+  
+  unsigned long size = file.size();
+  unsigned long off;
+ 
+  if (slot == -1) {
+    /* Append the record */
+    off = size;
+  } else {
+    /* Overwrite an existing record */
+    off = slot*RECORD_LEN;
+  }
+
+  if (slot < 0 || off > size || !file.seek(off)) {
+    file.close();
+    return DATABASE_EOF;
+  }
+  
+  /* Format the record and write it out */
+  sprintf(recordBuf, "%9s,%c\n", info.serial, info.enabled ? '1' : '0');
+  file.write(recordBuf);
+
+  /* Close up the file again */
+  file.close();
+
   return DATABASE_SUCCESS;
+}
+
+int CardDatabase::insertCard(CardInfo &info)
+{
+  // First try and reuse a blank slot
+  CardInfo tmp;
+  tmp.setBlank();
+  
+  int ret = lookupCard(tmp.serial, tmp);
+  if (ret == DATABASE_DOES_NOT_EXIST) {
+    // No blank spots so append the record to the file instead
+    return putCard(-1, info);
+  }
+  // Overwrite the blank record
+  return putCard(tmp.slot, info);
 }
 
 const prog_char *CardDatabase::getErrorStr(int code)
@@ -200,18 +263,16 @@ const prog_char *CardDatabase::getErrorStr(int code)
       return strInvalidRecord;
     case  DATABASE_DOES_NOT_EXIST:
       return strDatabaseNotFound;
+    case DATABASE_EOF:
+      return strDatabaseEOF;
   };
-  /* All other unknown errors (16-bit code, at most 5 digits, plus a sign,
-   * plus '#', plus null) */
-  char err[8];
-  sprintf(err, "#%d", code);
-  return err;
+  return strDatabaseFailure;
 }
 
 void CardDatabase::printRecords()
 {
   /* Load the database */
-  File file = SD.open("cards.txt", FILE_READ);
+  File file = SD.open(DB_FILE, FILE_READ);
   if (!file) {
     println_prog_str(getErrorStr(DATABASE_OPEN_FAILURE));
     return;
@@ -237,12 +298,36 @@ void CardDatabase::printRecords()
     Serial.print(']');
     Serial.print(' ');
     Serial.print(info.serial);
-    if (info.enabled) {
-      println_prog_str(strActive);
+    if (info.isBlank()) {
+      println_prog_str(strBlank);
     } else {
-      println_prog_str(strDisabled);
+      if (info.enabled) {
+        println_prog_str(strActive);
+      } else {
+        println_prog_str(strDisabled);
+      }
     }
   }
   file.close();
+}
+
+void CardInfo::setBlank()
+{
+  // Fill the serial number with zeros
+  for (int c=0; c < SERIAL_LEN; c++) {
+    serial[c] = BLANK_CHAR;
+  }
+  // Terminate with a null character. Note that the serial buffer is one char longer
+  // than 'SERIAL_LEN', so doing this is okay.
+  serial[SERIAL_LEN] = 0;
+  enabled = 0;
+}
+
+boolean CardInfo::isBlank()
+{
+  for (int c=0; c < SERIAL_LEN; c++) {
+    if (serial[c] != BLANK_CHAR) return false;
+  }
+  return true;
 }
 

@@ -2,7 +2,7 @@ haus|prox - electronic door access system
 -----------------------------------------
 
 Software by Peter Rogers (peter.rogers@gmail.com)
-Hardware by Trevyn Watson (...)
+Hardware by Trevyn Watson
 
 Haus|prox is an inexpensive feature-filled RFID card access system.
 The software is released under the GPL v3. The hardware design is 
@@ -47,7 +47,7 @@ You will need the Arduino IDE version 1.0 and the TimerOne library:
 * Arduino IDE - http://arduino.cc/
 * TimerOne - http://code.google.com/p/arduino-timerone/
 
-The code compiles to around 25k so you need a board that can handle 
+The code compiles to around 26k so you need a board that can handle 
 that. The program was developed and tested on the Arduino Duemilanove 
 with the ATMega 328 chip, but other boards will probably work too.
 

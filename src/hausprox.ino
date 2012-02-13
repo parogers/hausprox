@@ -38,25 +38,27 @@ PROGMEM const prog_char strMainMenu[] = {"\n**haus|prox**\n\n[1] Status\n[2] Man
 PROGMEM const prog_char strSDCardStatus[] = {"SD enabled:  "};
 PROGMEM const prog_char strDoorStatus[] = {"Door locked: "};
 PROGMEM const prog_char strOpenHouseStatus[] = {"Open house:  "};
-PROGMEM const prog_char strDateTimePrompt[] = {"Enter YY-MM-DD HH:MM:SS\n"};
+PROGMEM const prog_char strDateTimePrompt[] = {"Enter YY-MM-DD HH:MM:SS "};
 PROGMEM const prog_char strDateTimeOkay[] = {"Date/time changed\n"};
 
 PROGMEM const prog_char strYes[] = {"yes"};
 PROGMEM const prog_char strNo[] = {"no"};
-PROGMEM const prog_char strInvalidEntry[] = {"Invalid entry\n"};
-PROGMEM const prog_char strAborted[] = {"Aborted\n"};
+PROGMEM const prog_char strInvalidEntry[] = {"Invalid entry"};
+PROGMEM const prog_char strAborted[] = {"Aborted"};
+PROGMEM const prog_char strSuccess[] = {"Success"};
 
 // Strings for card management screen
 PROGMEM const prog_char strCardMenu[] = {"\n**Card Management**\n\n[1] List cards\n[2] Add\n[3] Delete\n[4] Edit\n[9] Back to main\n\n"};
 PROGMEM const prog_char strAddCardTitle[] = {"\n**Add card**\n\n"};
 PROGMEM const prog_char strEditCardTitle[] = {"\n**Edit card**\n\n"};
 PROGMEM const prog_char strDeleteCardTitle[] = {"\n**Delete card**\n\n"};
-PROGMEM const prog_char strSlotPrompt[] = {"Slot number?\n"};
+PROGMEM const prog_char strSlotPrompt[] = {"Slot number? "};
 PROGMEM const prog_char strEditingCard[] = {"Editing card "};
-PROGMEM const prog_char strCardPrompt[] = {"New serial (format FFF-CCCCC)?"};
-PROGMEM const prog_char strActivePrompt[] = {"Card active?\n"};
-PROGMEM const prog_char strConfirmPrompt[] = {"Confirm?\n"};
-PROGMEM const prog_char strCardRecordEdited[] = {"Card record edited"};
+PROGMEM const prog_char strDeletingCard[] = {"Deleting card "};
+PROGMEM const prog_char strCardPrompt[] = {"Serial (format FFF-CCCCC)? "};
+PROGMEM const prog_char strActivePrompt[] = {"Card active? "};
+PROGMEM const prog_char strConfirmPrompt[] = {"Confirm? "};
+PROGMEM const prog_char strSerialExists[] = {"Serial number is already taken"};
 
 #define YESNO(b)      ((b) ? strYes : strNo)
 
@@ -66,6 +68,7 @@ PROGMEM const prog_char strCardRecordEdited[] = {"Card record edited"};
 
 HausProx hausProx;
 char input[20];
+CardInfo info;
 
 /*************/
 /* Functions */
@@ -101,6 +104,46 @@ void read_input(const prog_char *msg)
   /* Be sure to null terminate the string */
   input[pos] = 0;
   Serial.println(input);
+}
+
+/* Displays the list of cards in the database, prompts the user for a slot number and
+ * loads the card data. */
+boolean read_card(CardInfo &info)
+{
+  hausProx.database.printRecords();
+  while(1) 
+  {
+    /* Prompt the user for the slot number */
+    read_input(strSlotPrompt);
+    int slot = atoi(input);
+    if (slot == 0) {
+      println_prog_str(strAborted);
+      return false;
+    }
+    slot--;
+    // Lookup the card
+    int ret = hausProx.database.getCard(slot, info);
+    if (ret == DATABASE_SUCCESS) {
+      return true;
+    }
+    print_prog_str(hausProx.database.getErrorStr(ret));
+  }
+}
+
+/* Asks a question and waits for the user to enter yes/no. Returns 1=true, 0=false, -1=empty input */
+int read_yesno(const prog_char *msg)
+{
+  while(1)
+  {
+    // Display the prompt, wait for input
+    read_input(msg);
+    // We only check the first character typed
+    char first = input[0];
+    if (first == 0) return -1;
+    if (first == 'y' || first == 'Y') return 1;
+    if (first == 'n' || first == 'N') return 0;
+    print_prog_str(strInvalidEntry);
+  }
 }
 
 /********/
@@ -157,7 +200,7 @@ void command_setdate()
     read_input(strDateTimePrompt);
     if (input[0] == 0) {
       // User cancelled
-      print_prog_str(strAborted);
+      println_prog_str(strAborted);
       break;
     }
     if (logger.clock.setDateTime(input)) {
@@ -166,7 +209,7 @@ void command_setdate()
       break;
     }
     // There was a problem setting the time
-    print_prog_str(strInvalidEntry);
+    println_prog_str(strInvalidEntry);
   }
 }
 
@@ -181,34 +224,73 @@ void command_test_sd()
 
 }
 
+void card_management_add()
+{
+  print_prog_str(strAddCardTitle);
+
+  while(1) 
+  {
+    // Let them enter a new serial (or blank to keep existing number if editing)
+    read_input(strCardPrompt);
+    if (input[0] == 0) {
+      // Aborted adding
+      println_prog_str(strAborted);
+      return;
+    }
+    // Trim the newline
+    trim(input);
+    if (strlen(input) == SERIAL_LEN)
+    {
+      // Make sure the serial doesn't already exist
+      // Change the serial
+      strcpy(info.serial, input);
+      break;
+    }
+    // Try again
+    println_prog_str(strInvalidEntry);
+  }
+
+  // Prompt the user for the enabled flag
+  int ret = read_yesno(strActivePrompt);
+  if (ret == -1) {
+      println_prog_str(strAborted);
+      return;
+  }
+  info.enabled = ret;
+  
+  // Now attempt to insert the card into the database
+  ret = hausProx.database.insertCard(info);
+  if (ret == DATABASE_SUCCESS) {
+    // Successful
+    println_prog_str(strSuccess);
+  } else {
+    // Failure
+    println_prog_str(hausProx.database.getErrorStr(ret));
+  }
+}
+
 void card_management_edit()
 {
-  // Edit entry
+  int ret;
+
+  // Lookup a card in the database
   print_prog_str(strEditCardTitle);
-  hausProx.database.printRecords();
-  read_input(strSlotPrompt);
-  int slot = atoi(input);
-  if (slot == 0) {
-    print_prog_str(strAborted);
-    return;
-  }
-  
-  // Lookup the card
-  CardInfo info;
-  if (!hausProx.database.getCard(slot, info)) {
-    print_prog_str(strInvalidEntry);
+  if (!read_card(info)) {
     return;
   }
 
+  // Tell the user what card is being edited
+  print_prog_str(strEditingCard);
+  Serial.println(info.serial);
+  
   boolean changed = false;
   while(1) 
   {
-    // Tell the user what card is being edited
-    print_prog_str(strEditingCard);
-    Serial.println(info.serial);
-    // Let them enter a new serial (or blank to keep existing)
+    // Let them enter a new serial (or blank to keep existing number if editing)
     read_input(strCardPrompt);
-    if (input[0] == 0) break;
+    if (input[0] == 0) {
+      break;
+    }
     // Trim the newline
     trim(input);
     if (strlen(input) == SERIAL_LEN)
@@ -219,39 +301,61 @@ void card_management_edit()
       break;
     }
     // Try again
-    print_prog_str(strInvalidEntry);
+    println_prog_str(strInvalidEntry);
   }
-  while(1) {
-    // Prompt the user to change the active/inactive status
-    read_input(strActivePrompt);
-    if (input[0] == 0) break;
-    // Change the enabled status
-    if (input[0] == 'y' || input[1] == 'Y') {
-      info.enabled = 1;
-      changed = true;
-      break;
-    } else if (input[0] == 'n' || input[1] == 'N') {
-      info.enabled = 0;
-      changed = true;
-      break;
-    }
-    print_prog_str(strInvalidEntry);
+
+  // Prompt the user for the enabled flag
+  ret = read_yesno(strActivePrompt);
+  if (ret != -1) {
+    info.enabled = ret;
+    changed = true;
   }
+
   if (changed) {
-    // Store the changes back in the database
-    int ret = hausProx.database.putCard(slot, info);
+    // Replace an existing card
+    ret = hausProx.database.putCard(info.slot, info);
+    
     if (ret == DATABASE_SUCCESS) {
-      logger.logMessage(LOG_ADMIN, strCardRecordEdited, info.serial, NULL);
+      println_prog_str(strSuccess);
     } else {
       println_prog_str(hausProx.database.getErrorStr(ret));
     }
+  } else {
+    println_prog_str(strAborted);
+  }
+}
+
+void card_management_delete()
+{
+  int ret;
+
+  print_prog_str(strDeleteCardTitle);
+  if (!read_card(info)) {
+    return;
+  }
+
+  // Ask the user for confirmation
+  print_prog_str(strDeletingCard);
+  Serial.println(info.serial);
+
+  read_input(strConfirmPrompt);
+  if (input[0] == 0 && input[0] != 'y' && input[0] == 'Y') {
+    println_prog_str(strAborted);
+    return;
+  }
+  // Blank out the card entry
+  info.setBlank();
+  ret = hausProx.database.putCard(info.slot, info);
+  if (ret == DATABASE_SUCCESS) {
+    println_prog_str(strSuccess);
+  } else {
+    println_prog_str(hausProx.database.getErrorStr(ret));
   }
 }
 
 void card_management_menu()
 {
   int slot, n;
-  CardInfo info;
   
   while(1)
   {
@@ -263,21 +367,14 @@ void card_management_menu()
         break;
       case '2':
         // Add card entry
-        print_prog_str(strAddCardTitle);
-        read_input(strCardPrompt);
-        read_input(strActivePrompt);
+        card_management_add();
         break;
       case '3':
         // Remove entry
-        print_prog_str(strDeleteCardTitle);
-        hausProx.database.printRecords();
-        read_input(strSlotPrompt);
-        slot = atoi(input);
-        if (slot == 0) continue;
-        read_input(strConfirmPrompt);
-        if (input[0] == 0) continue;
+        card_management_delete();
         break;
       case '4':
+        // Editing an entry
         card_management_edit();
         break;
       case '9':

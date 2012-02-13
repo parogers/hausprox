@@ -40,6 +40,12 @@ class CardInfo
     char serial[SERIAL_LEN+1];
     unsigned int slot;
     boolean enabled;
+    
+    /* Set the card info to represent a blank record (ie deleted) */
+    void setBlank();
+    
+    /* Returns whether this card info represents a blank record */
+    boolean isBlank();
 };
 
 typedef void (*RecordCallback)(CardInfo*);
@@ -66,14 +72,15 @@ class CardDatabase
     int lookupCard(char *serial, CardInfo &info);
 
     /* Retreive a card given the slot number */
-    boolean getCard(unsigned int slot, CardInfo &info);
+    int getCard(unsigned int slot, CardInfo &info);
 
     /* Saves a card in the database */
     int putCard(unsigned int slot, CardInfo &info);
 
     /* Inserts card data into the database at the first empty slot, or appended if
-     * there are no slots available. */
-    boolean insertCard(CardInfo &info);
+     * there are no slots available. Returns the slot number occuped by the record,
+     * or the error code upon failure. */
+    int insertCard(CardInfo &info);
 
     void printRecords();
 
