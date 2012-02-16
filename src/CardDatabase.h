@@ -34,10 +34,15 @@
 
 #define SERIAL_LEN       (3+1+5)
 
+// Card serial number type
+typedef char serial_t[SERIAL_LEN+1];
+
+// Represents a single card in the database
 class CardInfo
 {
   public:
-    char serial[SERIAL_LEN+1];
+    //char serial[SERIAL_LEN+1];
+    serial_t serial;
     unsigned int slot;
     boolean enabled;
     
@@ -48,8 +53,8 @@ class CardInfo
     boolean isBlank();
 };
 
-typedef void (*RecordCallback)(CardInfo*);
-
+/* Interface to the card number database. Card records are stored as fixed-length ascii strings
+ * for random access and ease of debugging. See 'docs/Database.txt' for more information. */
 class CardDatabase
 {
   private:

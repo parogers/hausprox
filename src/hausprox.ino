@@ -38,6 +38,7 @@ PROGMEM const prog_char strMainMenu[] = {"\n**haus|prox**\n\n[1] Status\n[2] Man
 PROGMEM const prog_char strSDCardStatus[] = {"SD enabled:  "};
 PROGMEM const prog_char strDoorStatus[] = {"Door locked: "};
 PROGMEM const prog_char strOpenHouseStatus[] = {"Open house:  "};
+PROGMEM const prog_char strDateStatus[] = {"Date/time:   "};
 PROGMEM const prog_char strDateTimePrompt[] = {"Enter YY-MM-DD HH:MM:SS "};
 PROGMEM const prog_char strDateTimeOkay[] = {"Date/time changed\n"};
 
@@ -67,7 +68,8 @@ PROGMEM const prog_char strSerialExists[] = {"Serial number is already taken"};
 /***********/
 
 HausProx hausProx;
-char input[20];
+/* The global buffer for storing user input */
+char input[25];
 CardInfo info;
 
 /*************/
@@ -120,17 +122,20 @@ boolean read_card(CardInfo &info)
       println_prog_str(strAborted);
       return false;
     }
-    slot--;
     // Lookup the card
     int ret = hausProx.database.getCard(slot, info);
     if (ret == DATABASE_SUCCESS) {
       return true;
     }
-    print_prog_str(hausProx.database.getErrorStr(ret));
+    else if (ret == DATABASE_EOF) {
+      println_prog_str(strInvalidEntry);
+    } else {
+      println_prog_str(hausProx.database.getErrorStr(ret));
+    }
   }
 }
 
-/* Asks a question and waits for the user to enter yes/no. Returns 1=true, 0=false, -1=empty input */
+/* Asks a question and waits for the user to enter yes/no. Returns 1=true, 0=false, -1=empty input (eg cancelled) */
 int read_yesno(const prog_char *msg)
 {
   while(1)
@@ -190,13 +195,22 @@ void command_status()
   print_prog_str(strDoorStatus);
   print_prog_str(YESNO(hausProx.door.isLocked()));
   Serial.print('\n');
+  /* Display the date/time */
+  logger.clock.update();
+  logger.clock.formatDateTime(input, sizeof(input));
+  print_prog_str(strDateStatus);
+  Serial.println(input);
 }
 
 void command_setdate()
 {
-  /* Format: YY-MM-DD HH:MM:SS (24 hour clock) */
+  /* Display the current date/time. Note the input buffer is long enough to do this. */
+  logger.clock.update();
+  logger.clock.formatDateTime(input, sizeof(input));
+  Serial.println(input);
   while(1) 
   {
+    /* Format: YY-MM-DD HH:MM:SS (24 hour clock) */
     read_input(strDateTimePrompt);
     if (input[0] == 0) {
       // User cancelled
@@ -226,6 +240,7 @@ void command_test_sd()
 
 void card_management_add()
 {
+  int ret;
   print_prog_str(strAddCardTitle);
 
   while(1) 
@@ -239,19 +254,29 @@ void card_management_add()
     }
     // Trim the newline
     trim(input);
-    if (strlen(input) == SERIAL_LEN)
-    {
-      // Make sure the serial doesn't already exist
-      // Change the serial
-      strcpy(info.serial, input);
-      break;
+    if (strlen(input) != SERIAL_LEN) {
+      // Bad serial number
+      println_prog_str(strInvalidEntry);
+      continue;
     }
-    // Try again
-    println_prog_str(strInvalidEntry);
+
+    // Make sure the serial doesn't already exist
+    ret = hausProx.database.lookupCard(input, info);
+    if (ret == DATABASE_DOES_NOT_EXIST) {
+      // The serial is not taken
+      break;
+    } else if (ret == DATABASE_SUCCESS) {
+      // Serial is already taken
+      println_prog_str(strSerialExists);
+    } else {
+      println_prog_str(hausProx.database.getErrorStr(ret));
+      return;
+    }
   }
+  strcpy(info.serial, input);
 
   // Prompt the user for the enabled flag
-  int ret = read_yesno(strActivePrompt);
+  ret = read_yesno(strActivePrompt);
   if (ret == -1) {
       println_prog_str(strAborted);
       return;
@@ -260,19 +285,12 @@ void card_management_add()
   
   // Now attempt to insert the card into the database
   ret = hausProx.database.insertCard(info);
-  if (ret == DATABASE_SUCCESS) {
-    // Successful
-    println_prog_str(strSuccess);
-  } else {
-    // Failure
-    println_prog_str(hausProx.database.getErrorStr(ret));
-  }
+  // Display the result (will also print 'Success' on success)
+  println_prog_str(hausProx.database.getErrorStr(ret));
 }
 
 void card_management_edit()
 {
-  int ret;
-
   // Lookup a card in the database
   print_prog_str(strEditCardTitle);
   if (!read_card(info)) {
@@ -305,7 +323,7 @@ void card_management_edit()
   }
 
   // Prompt the user for the enabled flag
-  ret = read_yesno(strActivePrompt);
+  int ret = read_yesno(strActivePrompt);
   if (ret != -1) {
     info.enabled = ret;
     changed = true;
@@ -314,12 +332,8 @@ void card_management_edit()
   if (changed) {
     // Replace an existing card
     ret = hausProx.database.putCard(info.slot, info);
-    
-    if (ret == DATABASE_SUCCESS) {
-      println_prog_str(strSuccess);
-    } else {
-      println_prog_str(hausProx.database.getErrorStr(ret));
-    }
+    // Display the result (will also print 'Success' on success)
+    println_prog_str(hausProx.database.getErrorStr(ret));
   } else {
     println_prog_str(strAborted);
   }
@@ -327,8 +341,6 @@ void card_management_edit()
 
 void card_management_delete()
 {
-  int ret;
-
   print_prog_str(strDeleteCardTitle);
   if (!read_card(info)) {
     return;
@@ -338,25 +350,21 @@ void card_management_delete()
   print_prog_str(strDeletingCard);
   Serial.println(info.serial);
 
-  read_input(strConfirmPrompt);
-  if (input[0] == 0 && input[0] != 'y' && input[0] == 'Y') {
+  if (read_yesno(strConfirmPrompt) != 1) {
+    // The user entered a blank line, or entered 'no'
     println_prog_str(strAborted);
     return;
   }
-  // Blank out the card entry
+  /* Note that cards are never deleted from the database. Instead the information is blankked-out
+   * (tombstoned) and reused later when a card is inserted. */
   info.setBlank();
-  ret = hausProx.database.putCard(info.slot, info);
-  if (ret == DATABASE_SUCCESS) {
-    println_prog_str(strSuccess);
-  } else {
-    println_prog_str(hausProx.database.getErrorStr(ret));
-  }
+  int ret = hausProx.database.putCard(info.slot, info);
+  // Display the result (will also print 'Success' on success)
+  println_prog_str(hausProx.database.getErrorStr(ret));
 }
 
 void card_management_menu()
 {
-  int slot, n;
-  
   while(1)
   {
     read_input(strCardMenu);
@@ -386,7 +394,7 @@ void card_management_menu()
 
 void main_menu()
 {
-  while(1) 
+  while(1)
   {
     /* Display the main menu */
     read_input(strMainMenu);

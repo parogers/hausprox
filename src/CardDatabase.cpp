@@ -51,6 +51,8 @@ PROGMEM const prog_char strBlank[] = {" - blank"};
 /* A buffer for storing record data temporarily */
 char recordBuf[RECORD_LEN+1];
 
+CardInfo cardInfo;
+
 /*************/
 /* Functions */
 /*************/
@@ -148,7 +150,7 @@ int CardDatabase::lookupCard(char *serial, CardInfo &info)
   while(1)
   {
     // Read the next card entry
-    ret = readCard(&file, info);
+    ret = readCard(&file, cardInfo);
     
     // If we reach the end of file, the record wasn't found
     if (ret == DATABASE_EOF) {
@@ -157,12 +159,13 @@ int CardDatabase::lookupCard(char *serial, CardInfo &info)
     }
     // If we hit an error reading a record, pass that error back on return
     if (ret != DATABASE_SUCCESS) break;
-    info.slot = count++;
+    cardInfo.slot = count++;
 
-    if (strcmp(info.serial, serial) == 0)
+    if (strcmp(cardInfo.serial, serial) == 0)
     {
       /* Found the card in the database */
       ret = DATABASE_SUCCESS;
+      info = cardInfo;
       break;
     }
   }
@@ -180,11 +183,13 @@ int CardDatabase::getCard(unsigned int slot, CardInfo &info)
   unsigned long size = file.size();
   unsigned long off = slot*RECORD_LEN;
   
-  if (slot < 0 || off >= size || !file.seek(off)) {
+  /* Make sure we don't jump past the end of the file - since seek doesn't seem to check for that */
+  if (off >= size || !file.seek(off)) {
     file.close();
     return DATABASE_EOF;
   }
   
+  // Read the card record
   int ret = readCard(&file, info);
   file.close();
 
@@ -215,15 +220,15 @@ int CardDatabase::putCard(unsigned int slot, CardInfo &info)
     off = size;
   } else {
     /* Overwrite an existing record */
-    off = slot*RECORD_LEN;
+    off = (slot-1)*RECORD_LEN;
   }
 
-  if (slot < 0 || off > size || !file.seek(off)) {
+  if (off > size || !file.seek(off)) {
     file.close();
     return DATABASE_EOF;
   }
   
-  /* Format the record and write it out */
+  /* Format the fixed-length record and write it out */
   sprintf(recordBuf, "%9s,%c\n", info.serial, info.enabled ? '1' : '0');
   file.write(recordBuf);
 
