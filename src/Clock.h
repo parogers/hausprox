@@ -22,35 +22,35 @@
  * bus is shared with the SD card reader so we have to be careful when using it. */
 class Clock
 {
-  private:
-    // The chip select pin for the time chip
-    int chipsel;
-  
   public:
     Clock();
     
-    // The hours, minutes, seconds on the last call to 'update'
+    /* The hours, minutes, seconds on the last call to 'update' */
     byte seconds;
     byte minutes;
     byte hours;
     byte weekday; // don't trust this value
     
-    // The date on the last call to 'update'. Note the year ranges 0-99.
+    /* The date on the last call to 'update'. Note the year ranges 0-99. */
     byte day;
     byte month;
     byte year;
   
-    // Update the stored time to the current time on the RTC chip
+    /* Update the stored time to the current time on the RTC chip */
     boolean update();
 
-    // Sets the date and time on the RTC given an input string. The string should look 
-    // like "YY-MM-DD HH:MM:SS". This function returns true if the string parses correctly, 
-    // false otherwise. Note the input buffer is modified.
+    /* Sets the date and time on the RTC given an input string. The string should look 
+     * like "YY-MM-DD HH:MM:SS". This function returns true if the string parses correctly, 
+     * false otherwise. Note that 'buf' is modified in either case. */
     boolean setDateTime(char *buf);
 
-    // Format the date/time in the buffer
+    /* Format the date/time in the buffer. If the buffer is not long enough (minimum 20 chars)
+     * this function does nothing. */
     void formatDateTime(char *buf, int len);
 };
+
+/* The global clock instance */
+extern Clock clock;
 
 #endif
 

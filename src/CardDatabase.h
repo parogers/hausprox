@@ -53,6 +53,8 @@ class CardInfo
     boolean isBlank();
 };
 
+typedef void (*CardCallback)(CardInfo&);
+
 /* Interface to the card number database. Card records are stored as fixed-length ascii strings
  * for random access and ease of debugging. See 'docs/Database.txt' for more information. */
 class CardDatabase
@@ -87,12 +89,11 @@ class CardDatabase
      * or the error code upon failure. */
     int insertCard(CardInfo &info);
 
-    void printRecords();
+    /* Enumerates the records in the card database, calling 'func' for each record. 
+     * Prior to calling the callback function, the contents of the record is copied
+     * into 'info' so the caller can access that data. */
+    int enumerateRecords(CardCallback func);
 
-    /* Lookup a card in the database. Fills information in 'info'
-     * and returns true if the card is found, otherwise leaves
-     * info unchanged and returns false. */    
-//    boolean lookupCard(unsigned int facilty, unsigned int card, CardInfo &info);
 };
 
 #endif

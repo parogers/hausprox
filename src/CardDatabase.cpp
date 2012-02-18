@@ -31,10 +31,6 @@ PROGMEM const prog_char strRecordTooLong[] = {"Record too long"};
 PROGMEM const prog_char strRecordTooShort[] = {"Record too short"};
 PROGMEM const prog_char strDatabaseEOF[] = {"Database EOF"};
 
-PROGMEM const prog_char strActive[] = {" - active"};
-PROGMEM const prog_char strDisabled[] = {" - disabled"};
-PROGMEM const prog_char strBlank[] = {" - blank"};
-
 /* The length of a line in the card database (serial+comma+enabled+newline) */
 #define RECORD_LEN     (SERIAL_LEN+1+1+1)
 
@@ -274,47 +270,34 @@ const prog_char *CardDatabase::getErrorStr(int code)
   return strDatabaseFailure;
 }
 
-void CardDatabase::printRecords()
+int CardDatabase::enumerateRecords(CardCallback func)
 {
-  /* Load the database */
+  CardInfo info;
+  /* Open the database */
   File file = SD.open(DB_FILE, FILE_READ);
   if (!file) {
-    println_prog_str(getErrorStr(DATABASE_OPEN_FAILURE));
-    return;
+    return DATABASE_OPEN_FAILURE;
   }
 
-  CardInfo info;
   int count=1;
   while(1)
   {
-    CardInfo info;
+    // Read in the next card info and print it
     int ret = readCard(&file, info);
 
     if (ret == DATABASE_EOF) break;
     if (ret != DATABASE_SUCCESS) {
-      println_prog_str(getErrorStr(ret));
-      break;
+      return ret;
     }
-
     info.slot = count++;
-
-    Serial.print('[');
-    Serial.print((int)info.slot);
-    Serial.print(']');
-    Serial.print(' ');
-    Serial.print(info.serial);
-    if (info.isBlank()) {
-      println_prog_str(strBlank);
-    } else {
-      if (info.enabled) {
-        println_prog_str(strActive);
-      } else {
-        println_prog_str(strDisabled);
-      }
-    }
+    func(info);
   }
   file.close();
 }
+
+/************/
+/* CardInfo */
+/************/
 
 void CardInfo::setBlank()
 {

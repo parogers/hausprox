@@ -22,7 +22,6 @@
 #define __LOGGER_H__
 
 #include <SD.h>
-#include "Clock.h"
 
 #define LOG_CARD     1
 #define LOG_ERROR    2
@@ -39,8 +38,6 @@ class Logger
   public:
     Logger();
 
-    /* The realtime clock */
-    Clock clock;
     boolean sdEnabled;
 
     /* Message format:

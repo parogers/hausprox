@@ -21,6 +21,9 @@
 #include "utils.h"
 #include "Clock.h"
 
+/* The global clock instance */
+Clock clock;
+
 /* The real-time clock address on the I2C bus */
 #define RTC_ADDRESS       B1101000
 
