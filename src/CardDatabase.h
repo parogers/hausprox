@@ -89,9 +89,7 @@ class CardDatabase
      * or the error code upon failure. */
     int insertCard(CardInfo &info);
 
-    /* Enumerates the records in the card database, calling 'func' for each record. 
-     * Prior to calling the callback function, the contents of the record is copied
-     * into 'info' so the caller can access that data. */
+    /* Enumerates the records in the card database, calling 'func' for each record */
     int enumerateRecords(CardCallback func);
 
 };

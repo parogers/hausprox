@@ -32,39 +32,40 @@ Clock::Clock()
   seconds = 0;
   minutes = 0;
   hours = 0;
-  day = 0;
-  month = 0;
+  day = 1;
+  month = 1;
   year = 0;
 }
 
 boolean Clock::update()
 {
+  boolean ret = false;
   Wire.beginTransmission(RTC_ADDRESS);
   Wire.write((byte)0);
   Wire.endTransmission();
 
   Wire.requestFrom(RTC_ADDRESS, 7);
-  if (Wire.available() == 0) 
+  if (Wire.available() > 0) 
   {
-    return false;
+    seconds = decodeBCD(Wire.read());
+    minutes = decodeBCD(Wire.read());
+    hours = decodeBCD(Wire.read());
+    weekday = decodeBCD(Wire.read());
+    day = decodeBCD(Wire.read());
+    month = decodeBCD(Wire.read());
+    year = decodeBCD(Wire.read());
+    ret = true;
   }
-  seconds = decodeBCD(Wire.read());
-  minutes = decodeBCD(Wire.read());
-  hours = decodeBCD(Wire.read());
-  weekday = decodeBCD(Wire.read());
-  day = decodeBCD(Wire.read());
-  month = decodeBCD(Wire.read());
-  year = decodeBCD(Wire.read());
 
   /* Make sure the time data makes sense */
   /* TODO - log inconsistent data */
   if (year > 99) year = 0;
-  if (month > 12) month = 0;
-  if (day > 31) day = 0;
+  if (month > 12) month = 1;
+  if (day > 31) day = 1;
   if (hours > 24) hours = 0;
   if (minutes > 60) minutes = 0;
   if (seconds > 60) seconds = 0;
-  return true;
+  return ret;
 }
 
 boolean Clock::setDateTime(char *buf)

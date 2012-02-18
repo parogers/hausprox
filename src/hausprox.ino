@@ -34,14 +34,18 @@
 /***********/
 
 // Strings for main screen
-PROGMEM const prog_char strMainMenu[] = {"\n**haus|prox**\n\n[1] Status\n[2] Manage cards\n[3] Manage log files\n[4] Change date/time\n[5] Test SD card\n\n"};
+PROGMEM const prog_char strMainMenu[] = {"\n**haus|prox**\n\n[1] Status\n[2] Manage cards\n[3] Review log file\n[4] Change date/time\n[5] Test SD card\n\n> "};
 PROGMEM const prog_char strSDCardStatus[] = {"SD enabled:  "};
 PROGMEM const prog_char strDoorStatus[] = {"Door locked: "};
 PROGMEM const prog_char strOpenHouseStatus[] = {"Open house:  "};
 PROGMEM const prog_char strDateStatus[] = {"Date/time:   "};
-PROGMEM const prog_char strDateTimePrompt[] = {"Enter YY-MM-DD HH:MM:SS "};
-PROGMEM const prog_char strDateTimeOkay[] = {"Date/time changed\n"};
 
+// Strings for date/time
+PROGMEM const prog_char strDateTimePrompt[] = {"Enter YY-MM-DD HH:MM:SS? "};
+PROGMEM const prog_char strDateTimeOkay[] = {"Date/time changed\n"};
+PROGMEM const prog_char strDateTimeIs[] = {"The time is "};
+
+// Generall-purpose strings
 PROGMEM const prog_char strYes[] = {"yes"};
 PROGMEM const prog_char strNo[] = {"no"};
 PROGMEM const prog_char strInvalidEntry[] = {"Invalid entry"};
@@ -49,17 +53,17 @@ PROGMEM const prog_char strAborted[] = {"Aborted"};
 PROGMEM const prog_char strSuccess[] = {"Success"};
 
 // Strings for card management screen
-PROGMEM const prog_char strCardMenu[] = {"\n**Card Management**\n\n[1] List cards\n[2] Add\n[3] Delete\n[4] Edit\n[9] Back to main\n\n"};
+PROGMEM const prog_char strCardMenu[] = {"\n**Card Management**\n\n[1] List cards\n[2] Add\n[3] Delete\n[4] Edit\n[9] Back to main\n\n> "};
 PROGMEM const prog_char strAddCardTitle[] = {"\n**Add card**\n\n"};
 PROGMEM const prog_char strEditCardTitle[] = {"\n**Edit card**\n\n"};
 PROGMEM const prog_char strDeleteCardTitle[] = {"\n**Delete card**\n\n"};
 PROGMEM const prog_char strSlotPrompt[] = {"Slot number? "};
 PROGMEM const prog_char strEditingCard[] = {"Editing card "};
 PROGMEM const prog_char strDeletingCard[] = {"Deleting card "};
-PROGMEM const prog_char strCardPrompt[] = {"Serial (format FFF-CCCCC)? "};
+PROGMEM const prog_char strCardPrompt[] = {"Serial? (FFF-CCCCC) "};
 PROGMEM const prog_char strActivePrompt[] = {"Card active? "};
 PROGMEM const prog_char strConfirmPrompt[] = {"Confirm? "};
-PROGMEM const prog_char strSerialExists[] = {"Serial number is already taken"};
+PROGMEM const prog_char strSerialExists[] = {"Serial number is taken"};
 
 // Strings for printing the card database
 PROGMEM const prog_char strActive[] = {" - active"};
@@ -67,7 +71,14 @@ PROGMEM const prog_char strDisabled[] = {" - disabled"};
 PROGMEM const prog_char strBlank[] = {" - blank"};
 
 // Strings for log management
-PROGMEM const prog_char strLogMenu[] = {"\n**Log Management**\n\n[1] List logs\n[2] Review log\n[9] Back to main\n\n"};
+PROGMEM const prog_char strReviewLogTitle[] = {"\n**Review log**\n\nEnter a blank for current year, month or day\n\n"};
+PROGMEM const prog_char strLogMenu[] = {"\n**Log Management**\n\n[1] List logs\n[2] Review log\n[9] Back to main\n\n> "};
+PROGMEM const prog_char strEnterYear[] = {"Year? (2 digits) "};
+PROGMEM const prog_char strEnterMonth[] = {"Month? "};
+PROGMEM const prog_char strEnterDay[] = {"Day? "};
+PROGMEM const prog_char strLogNotFound[] = {"Log file not found: "};
+PROGMEM const prog_char strNoLogEntries[] = {"No entries found"};
+PROGMEM const prog_char strSearchingLog[] = {"Scanning log file: "};
 
 // Convenience macro for printing yes/no
 #define YESNO(b)      ((b) ? strYes : strNo)
@@ -160,6 +171,33 @@ int read_yesno(const prog_char *msg)
   }
 }
 
+/* Reads an integer value from the user, or a default value if the user enters a blank line */
+int read_int(const prog_char *msg, int def)
+{
+  int ret;
+  while(1) {
+    read_input(msg);
+    if (input[0] == 0) {
+      // Go with the default
+      Serial.println(def);
+      return def;
+    }
+    boolean isInt = true;
+    char *ptr = input;
+    while(*ptr != 0) {
+      if (*ptr < '0' || *ptr > '9') {
+        isInt = false;
+        break;
+      }
+      ptr++;
+    }
+    if (isInt) {
+      return atoi(input);
+    }
+    println_prog_str(strInvalidEntry);
+  }
+}
+
 void print_card_cb(CardInfo &info)
 {
   Serial.print('[');
@@ -182,6 +220,15 @@ void print_card_cb(CardInfo &info)
 void print_cards()
 {
   hausProx.database.enumerateRecords(print_card_cb);
+}
+
+/* Prints the date/time to Serial */
+void print_datetime()
+{
+  clock.update();
+  clock.formatDateTime(input, sizeof(input));
+  print_prog_str(strDateTimeIs);
+  Serial.println(input);
 }
 
 #if 0
@@ -210,15 +257,15 @@ void command_status()
   /* Display the open house status */
   print_prog_str(strOpenHouseStatus);
   print_prog_str(YESNO(hausProx.openHouseMode));
-  Serial.print('\n');
+  Serial.println("");
   /* Display SD card status */
   print_prog_str(strSDCardStatus);
   print_prog_str(YESNO(hausProx.sdEnabled));
-  Serial.print('\n');
+  Serial.println("");
   /* Display the door lock status */
   print_prog_str(strDoorStatus);
   print_prog_str(YESNO(hausProx.door.isLocked()));
-  Serial.print('\n');
+  Serial.println("");
   /* Display the date/time */
   clock.update();
   clock.formatDateTime(input, sizeof(input));
@@ -233,9 +280,7 @@ void command_status()
 void command_setdate()
 {
   /* Display the current date/time. Note the input buffer is long enough to do this. */
-  clock.update();
-  clock.formatDateTime(input, sizeof(input));
-  Serial.println(input);
+  print_datetime();
   while(1) 
   {
     /* Format: YY-MM-DD HH:MM:SS (24 hour clock) */
@@ -437,7 +482,111 @@ void card_management_menu()
 
 void log_management_menu()
 {
+  int year, month, day;
+  print_datetime();
   
+  clock.update();
+
+  print_prog_str(strReviewLogTitle);
+
+  // Enter the year (default is current year)
+  while(1) {  
+    year = read_int(strEnterYear, clock.year);
+    if (year >= 0 && year <= 99) break;
+    println_prog_str(strInvalidEntry);
+  }
+
+  // Enter the month (default is current month)
+  while(1) {
+    month = read_int(strEnterMonth, clock.month);
+    if (month >= 1 && month <= 12) break;
+    println_prog_str(strInvalidEntry);
+  }
+  
+  // Enter the day (default is today)
+  while(1) {
+    day = read_int(strEnterDay, clock.day);
+    if (day >= 1 && day <= 31) break;
+    println_prog_str(strInvalidEntry);
+  }
+
+  sprintf(input, "HP-%02d-%02d.LOG", year, month);
+  File file = SD.open(input, FILE_READ);
+  if (!file) {
+    print_prog_str(strLogNotFound);
+    Serial.println(input);
+    return;
+  }
+  
+  // For large log files there can be a bit of a delay, so let the user know what's going on
+  print_prog_str(strSearchingLog);
+  Serial.println(input);
+  Serial.println("");
+  
+  boolean done = false, found=false;
+  int count = 1;
+  while(!done) 
+  {
+    /* Since log lines may be arbitrarily long, we read them in small chunks. We want to handle the first
+     * chunk specially, since we will use that in conjunction with our date filtering. */
+    int len = read_line(&file, input, sizeof(input));
+    if (len == 0) {
+      break;
+    }
+
+    // Whether to output the line or skip over it (ie does it match our filter)
+    boolean outputLine = true;
+    // Make sure the line is long enough to include a timestamp
+    if (len >= 20) {
+      // TODO - is there a better way than this?
+      char daystr[3];
+      daystr[0] = input[8];
+      daystr[1] = input[9];
+      daystr[2] = 0;
+      if (day != atoi(daystr)) {
+        // Ignore this line. Note we still need to read in the rest of the line below.
+        outputLine = false;
+      }
+    }
+    if (outputLine) {
+      found = true;
+      Serial.print('[');
+      Serial.print(count);
+      Serial.print(']');
+      Serial.print(' ');
+      Serial.print(input);
+    }
+    count++;
+    
+    while(1) {
+      int len = read_line(&file, input, sizeof(input));
+      if (len == 0) {
+        done = true;
+        break;
+      }
+
+      if (outputLine) {
+        /* Dump it to the serial */
+        Serial.print(input);
+      }
+      if (input[len-1] == '\n') {
+        /* Found the end of line */
+        break;
+      }
+    }
+    /* Let the user break out at any time */
+    if (Serial.available() > 0) {
+      /* Consume the input so it doesn't get picked up elsewhere */
+      while(Serial.available() > 0) Serial.read();
+      println_prog_str(strAborted);
+      break;
+    }
+  } 
+  file.close();
+  
+  if (!found) {
+    println_prog_str(strNoLogEntries);
+  }
 }
 
 /*************/
@@ -459,6 +608,7 @@ void main_menu()
         break;
       case '3':
         log_management_menu();
+        break;
       case '4':
         command_setdate();
         break;

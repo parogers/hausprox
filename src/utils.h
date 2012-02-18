@@ -41,8 +41,8 @@ class DebouncedInput
     void update(boolean state);
 };
 
-/* Reads a line of input from the stream up to 'size-1' bytes. Note this string 
- * is always null-terminated. Returns the number of chars read. */
+/* Reads a line of input from the stream until the first new-line character is read, or up to 'size-1' bytes,
+ * whichever comes first. Note this string is always null-terminated. Returns the number of chars read. */
 int read_line(Stream *stream, char *buf, int size);
 /* Prints a string stored in program memory */
 void print_prog_str(Stream *stream, const prog_char *str);
