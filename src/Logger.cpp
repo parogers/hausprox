@@ -39,6 +39,7 @@ Logger logger;
 Logger::Logger()
 {
   sdEnabled = false;
+  serialLogging = true;
 }
 
 void Logger::logMessage(int level, const prog_char *msg)

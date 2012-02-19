@@ -39,6 +39,8 @@ class Logger
     Logger();
 
     boolean sdEnabled;
+    // Whether to log to the serial port as well
+    boolean serialLogging;
 
     /* Message format:
      *

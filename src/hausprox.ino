@@ -34,7 +34,7 @@
 /***********/
 
 // Strings for main screen
-PROGMEM const prog_char strMainMenu[] = {"\n**haus|prox**\n\n[1] Status\n[2] Manage cards\n[3] Review log file\n[4] Change date/time\n[5] Test SD card\n\n> "};
+PROGMEM const prog_char strMainMenu[] = {"\n**haus|prox**\n\n[1] Status\n[2] Manage cards\n[3] Manage log files\n[4] Change date/time\n[5] Test SD card\n\n> "};
 PROGMEM const prog_char strSDCardStatus[] = {"SD enabled:  "};
 PROGMEM const prog_char strDoorStatus[] = {"Door locked: "};
 PROGMEM const prog_char strOpenHouseStatus[] = {"Open house:  "};
@@ -71,11 +71,14 @@ PROGMEM const prog_char strDisabled[] = {" - disabled"};
 PROGMEM const prog_char strBlank[] = {" - blank"};
 
 // Strings for log management
-PROGMEM const prog_char strReviewLogTitle[] = {"\n**Review log**\n\nEnter a blank for current year, month or day\n\n"};
-PROGMEM const prog_char strLogMenu[] = {"\n**Log Management**\n\n[1] List logs\n[2] Review log\n[9] Back to main\n\n> "};
+PROGMEM const prog_char strLogMenu[] = {"\n**Log Management**\n\n[1] Review log\n[2] Dump log contents\n[3] Monitor log\n[9] Back to main\n\n> "};
+PROGMEM const prog_char strReviewLogTitle[] = {"\n**Review log**\n"};
+PROGMEM const prog_char strDumpLogTitle[] = {"\n**Dump log**\n"};
+PROGMEM const prog_char strMonitorLogTitle[] = {"\n**Monitor log**\n\nPress enter to stop"};
+PROGMEM const prog_char strLogInstructions[] = {"\n\nEnter a blank to use current year, month or day.\n\n"};
 PROGMEM const prog_char strEnterYear[] = {"Year? (2 digits) "};
 PROGMEM const prog_char strEnterMonth[] = {"Month? "};
-PROGMEM const prog_char strEnterDay[] = {"Day? "};
+PROGMEM const prog_char strEnterDay[] = {"Day? (0=all) "};
 PROGMEM const prog_char strLogNotFound[] = {"Log file not found: "};
 PROGMEM const prog_char strNoLogEntries[] = {"No entries found"};
 PROGMEM const prog_char strSearchingLog[] = {"Scanning log file: "};
@@ -482,12 +485,58 @@ void card_management_menu()
 
 void log_management_menu()
 {
+  while(1) {
+    read_input(strLogMenu);
+    switch(input[0]) {
+      case '1':
+        // Dump the log interactively
+        log_management_dump(true);
+        break;
+      case '2':
+        // Dump the log
+        log_management_dump(false);
+        break;
+      case '3':
+        // Monitor new additions to the log file
+        log_management_monitor();
+        break;
+      case '9':
+        return;
+    }
+  }
+}
+
+void log_management_monitor()
+{
+  println_prog_str(strMonitorLogTitle);
+  logger.serialLogging = true;
+  while(1) {
+    if (Serial.available() > 0) {
+      /* Consume the input so it doesn't get picked up elsewhere and stop monitoring */
+      while(Serial.available() > 0) Serial.read();
+      break;
+    }
+  }
+  logger.serialLogging = false;
+  println_prog_str(strAborted);
+}
+
+/* Dump the contents of a log file specified by the user. If 'interactive' is true, the user will
+ * be prompted to hit enter to scroll through pages of log entries. Otherwise the log file is 
+ * printed without pause. */
+void log_management_dump(boolean interactive)
+{
   int year, month, day;
-  print_datetime();
   
   clock.update();
 
-  print_prog_str(strReviewLogTitle);
+  if (interactive) {
+    println_prog_str(strReviewLogTitle);
+  } else {
+    println_prog_str(strDumpLogTitle);
+  }
+
+  print_datetime();
 
   // Enter the year (default is current year)
   while(1) {  
@@ -506,7 +555,7 @@ void log_management_menu()
   // Enter the day (default is today)
   while(1) {
     day = read_int(strEnterDay, clock.day);
-    if (day >= 1 && day <= 31) break;
+    if (day >= 0 && day <= 31) break;
     println_prog_str(strInvalidEntry);
   }
 
@@ -537,7 +586,7 @@ void log_management_menu()
     // Whether to output the line or skip over it (ie does it match our filter)
     boolean outputLine = true;
     // Make sure the line is long enough to include a timestamp
-    if (len >= 20) {
+    if (day != 0 && len >= 20) {
       // TODO - is there a better way than this?
       char daystr[3];
       daystr[0] = input[8];
@@ -559,6 +608,7 @@ void log_management_menu()
     count++;
     
     while(1) {
+      /* Read in the next chunk, up to the end of the line */
       int len = read_line(&file, input, sizeof(input));
       if (len == 0) {
         done = true;
@@ -655,6 +705,8 @@ void setup()
   Timer1.initialize(1000000);
   
   hausProx.begin();
+  // Turn off serial logging
+  logger.serialLogging = false;
 }
 
 void loop()
