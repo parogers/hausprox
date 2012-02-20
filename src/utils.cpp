@@ -18,7 +18,10 @@
 
 #include <avr/pgmspace.h>
 #include "utils.h"
-#include "Logger.h"
+
+/******************/
+/* DebouncedInput */
+/******************/
 
 DebouncedInput::DebouncedInput()
 {
@@ -54,6 +57,10 @@ void DebouncedInput::update(boolean st)
   }
 }
 
+/*************/
+/* Functions */
+/*************/
+
 int read_line(Stream *stream, char *buf, int size)
 {
   int pos = 0;
@@ -88,7 +95,7 @@ void print_prog_str(Stream *stream, const prog_char str[])
 void println_prog_str(const prog_char str[])
 {
   print_prog_str(str);
-  Serial.print('\n');
+  Serial.println();
 }
 
 void print_prog_str(const prog_char str[])

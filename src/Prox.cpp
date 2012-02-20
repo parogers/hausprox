@@ -20,7 +20,6 @@
 
 #include <Wire.h>
 #include <SD.h>
-#include <SPI.h>
 
 #include "Prox.h"
 

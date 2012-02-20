@@ -82,9 +82,12 @@ PROGMEM const prog_char strEnterDay[] = {"Day? (0=all) "};
 PROGMEM const prog_char strLogNotFound[] = {"Log file not found: "};
 PROGMEM const prog_char strNoLogEntries[] = {"No entries found"};
 PROGMEM const prog_char strSearchingLog[] = {"Scanning log file: "};
+PROGMEM const prog_char strPressEnter[] = {"\n<<Press enter to continue>>\n"};
 
 // Convenience macro for printing yes/no
-#define YESNO(b)      ((b) ? strYes : strNo)
+#define YESNO(b)              ((b) ? strYes : strNo)
+// When reviewing log files, the number of lines to print before prompting the user to hit enter
+#define LOG_LINES_PER_PAGE    30
 
 /***********/
 /* Globals */
@@ -260,15 +263,15 @@ void command_status()
   /* Display the open house status */
   print_prog_str(strOpenHouseStatus);
   print_prog_str(YESNO(hausProx.openHouseMode));
-  Serial.println("");
+  Serial.println();
   /* Display SD card status */
   print_prog_str(strSDCardStatus);
   print_prog_str(YESNO(hausProx.sdEnabled));
-  Serial.println("");
+  Serial.println();
   /* Display the door lock status */
   print_prog_str(strDoorStatus);
   print_prog_str(YESNO(hausProx.door.isLocked()));
-  Serial.println("");
+  Serial.println();
   /* Display the date/time */
   clock.update();
   clock.formatDateTime(input, sizeof(input));
@@ -570,11 +573,14 @@ void log_management_dump(boolean interactive)
   // For large log files there can be a bit of a delay, so let the user know what's going on
   print_prog_str(strSearchingLog);
   Serial.println(input);
-  Serial.println("");
+  Serial.println();
   
   boolean done = false, found=false;
+  // The number of lines processed in the log file
   int count = 1;
-  while(!done) 
+  // The number of lines printed from the log file
+  int linesPrinted = 0;
+  while(!done)
   {
     /* Since log lines may be arbitrarily long, we read them in small chunks. We want to handle the first
      * chunk specially, since we will use that in conjunction with our date filtering. */
@@ -599,6 +605,7 @@ void log_management_dump(boolean interactive)
     }
     if (outputLine) {
       found = true;
+      linesPrinted++;
       Serial.print('[');
       Serial.print(count);
       Serial.print(']');
@@ -630,6 +637,10 @@ void log_management_dump(boolean interactive)
       while(Serial.available() > 0) Serial.read();
       println_prog_str(strAborted);
       break;
+    }
+    if (interactive && linesPrinted % LOG_LINES_PER_PAGE == 0) {
+      // Wait for user input
+      read_input(strPressEnter);
     }
   } 
   file.close();
