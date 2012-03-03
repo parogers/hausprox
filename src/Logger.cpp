@@ -57,7 +57,7 @@ void Logger::logMessage(int level, const prog_char *msg, const char *serial, Car
   char buf[22];
   /* Extract the last two digits of the year */
   int year2d = clock.year - 100*(clock.year/100);
-  sprintf(buf, "hp-%d-%02d.log", year2d, clock.month);
+  sprintf(buf, "hp-%02d-%02d.log", year2d, clock.month);
 
   /* Log to a file if the SD card is enabled */
   File file;
@@ -75,7 +75,9 @@ void Logger::logMessage(int level, const prog_char *msg, const char *serial, Car
   
   // Write out the timestamp
   clock.formatDateTime(buf, sizeof(buf));
-  Serial.print(buf);
+  if (serialLogging) {
+    Serial.print(buf);
+  }
   if (file) {
     file.print(buf);
   }
@@ -99,8 +101,10 @@ void Logger::logMessage(int level, const prog_char *msg, const char *serial, Car
       strType = strMessageType;
       break;
   }
-  print_prog_str(strType);
-  print_prog_str(msg);
+  if (serialLogging) {
+    print_prog_str(strType);
+    print_prog_str(msg);
+  }
 
   if (file) {
     print_prog_str(&file, strType);
@@ -108,8 +112,10 @@ void Logger::logMessage(int level, const prog_char *msg, const char *serial, Car
   }
 
   if (serial != NULL) {
-    print_prog_str(strSerialPart);
-    Serial.print(serial);
+    if (serialLogging) {
+      print_prog_str(strSerialPart);
+      Serial.print(serial);
+    }
     
     if (file) {
       print_prog_str(&file, strSerialPart);
@@ -120,14 +126,16 @@ void Logger::logMessage(int level, const prog_char *msg, const char *serial, Car
   if (reader != NULL) {
     int n, numBits = reader->getBitsRead();
     char ch;
-    print_prog_str(strBufferPart);
-    for (n = 0; n < numBits; n++) 
-    {
-      if (reader->getData(n) == 1) ch = '1';
-      else ch = '0';
-      Serial.print(ch);
+    if (serialLogging) {
+      print_prog_str(strBufferPart);
+      for (n = 0; n < numBits; n++) 
+      {
+        if (reader->getData(n) == 1) ch = '1';
+        else ch = '0';
+        Serial.print(ch);
+      }
+      Serial.print('\n');
     }
-    Serial.print('\n');
     if (file) {
       print_prog_str(&file, strBufferPart);
       for (n = 0; n < numBits; n++) 
@@ -140,7 +148,9 @@ void Logger::logMessage(int level, const prog_char *msg, const char *serial, Car
     }
   }
 
-  Serial.print('\n');
+  if (serialLogging) {
+    Serial.println();
+  }
   if (file) {
     file.print('\n');
     file.close();

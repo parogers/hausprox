@@ -140,7 +140,7 @@ int CardDatabase::lookupCard(char *serial, CardInfo &info)
    * serial,enabled\n       (serial=9 chars, enabled=1 char, plus newline)
    * ...
    */
-  int count = 1;
+  int count = 0;
 
   int ret = DATABASE_EOF;
   while(1)
@@ -216,7 +216,7 @@ int CardDatabase::putCard(unsigned int slot, CardInfo &info)
     off = size;
   } else {
     /* Overwrite an existing record */
-    off = (slot-1)*RECORD_LEN;
+    off = slot*RECORD_LEN;
   }
 
   if (off > size || !file.seek(off)) {

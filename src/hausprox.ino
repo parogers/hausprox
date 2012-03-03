@@ -27,6 +27,9 @@
 /* TODO:
  * -autoinit SD card if a previous attempt to access it failed
  * -use the SD card present pin
+ * -battery backup not working
+ * +review log - caught in loop?
+ * +monitor log - not processing events
  */
 
 /***********/
@@ -34,7 +37,7 @@
 /***********/
 
 // Strings for main screen
-PROGMEM const prog_char strMainMenu[] = {"\n**haus|prox**\n\n[1] Status\n[2] Manage cards\n[3] Manage log files\n[4] Change date/time\n[5] Test SD card\n\n> "};
+PROGMEM const prog_char strMainMenu[] = {"\n**haus|prox**\n\n[1] Status\n[2] Manage cards\n[3] Manage log files\n[4] Change date/time\n[5] Diagnostics\n\n> "};
 PROGMEM const prog_char strSDCardStatus[] = {"SD enabled:  "};
 PROGMEM const prog_char strDoorStatus[] = {"Door locked: "};
 PROGMEM const prog_char strOpenHouseStatus[] = {"Open house:  "};
@@ -74,7 +77,7 @@ PROGMEM const prog_char strBlank[] = {" - blank"};
 PROGMEM const prog_char strLogMenu[] = {"\n**Log Management**\n\n[1] Review log\n[2] Dump log contents\n[3] Monitor log\n[9] Back to main\n\n> "};
 PROGMEM const prog_char strReviewLogTitle[] = {"\n**Review log**\n"};
 PROGMEM const prog_char strDumpLogTitle[] = {"\n**Dump log**\n"};
-PROGMEM const prog_char strMonitorLogTitle[] = {"\n**Monitor log**\n\nPress enter to stop"};
+PROGMEM const prog_char strMonitorLogTitle[] = {"\n**Monitoring log**\n\nPress enter to stop"};
 PROGMEM const prog_char strLogInstructions[] = {"\n\nEnter a blank to use current year, month or day.\n\n"};
 PROGMEM const prog_char strEnterYear[] = {"Year? (2 digits) "};
 PROGMEM const prog_char strEnterMonth[] = {"Month? "};
@@ -83,6 +86,9 @@ PROGMEM const prog_char strLogNotFound[] = {"Log file not found: "};
 PROGMEM const prog_char strNoLogEntries[] = {"No entries found"};
 PROGMEM const prog_char strSearchingLog[] = {"Scanning log file: "};
 PROGMEM const prog_char strPressEnter[] = {"\n<<Press enter to continue>>\n"};
+
+// Strings for the diagnostics menu
+PROGMEM const prog_char strDiagnosticsMenu[] = {"\n**Diagnostics Menu**\n\n[1] Beep test\n[2] Strike test\n[3] SD card test\n[9] Back to main\n\n> "};
 
 // Convenience macro for printing yes/no
 #define YESNO(b)              ((b) ? strYes : strNo)
@@ -149,7 +155,7 @@ boolean read_card(CardInfo &info)
       return false;
     }
     // Lookup the card
-    int ret = hausProx.database.getCard(slot, info);
+    int ret = hausProx.database.getCard(slot-1, info);
     if (ret == DATABASE_SUCCESS) {
       return true;
     }
@@ -306,12 +312,44 @@ void command_setdate()
   }
 }
 
-/***********/
-/* SD menu */
-/***********/
+/********************/
+/* Diagnostics menu */
+/********************/
 
-void command_test_sd()
+void diagnostics_menu()
 {
+  while(1) {
+    read_input(strDiagnosticsMenu);
+    switch(input[0]) {
+      case '1':
+        // Beep test. Short beep
+        hausProx.reader.setBeep(true);
+        delay(200);
+        hausProx.reader.setBeep(false);
+        delay(200);
+        // Long beep
+        hausProx.reader.setBeep(true);
+        delay(400);
+        hausProx.reader.setBeep(false);
+        delay(400);
+        // Short beep
+        hausProx.reader.setBeep(true);
+        delay(200);
+        hausProx.reader.setBeep(false);
+        delay(200);
+        break;
+      case '2':
+        // Strike test
+        hausProx.door.unlock(5);
+        break;
+      case '3':
+        // SD card test
+        break;
+      case '9':
+        return;
+    }
+  }
+
   /* Check if the card is physically plugged in */
   
   /* Try to initialize the SD library */
@@ -511,17 +549,9 @@ void log_management_menu()
 
 void log_management_monitor()
 {
-  println_prog_str(strMonitorLogTitle);
   logger.serialLogging = true;
-  while(1) {
-    if (Serial.available() > 0) {
-      /* Consume the input so it doesn't get picked up elsewhere and stop monitoring */
-      while(Serial.available() > 0) Serial.read();
-      break;
-    }
-  }
+  read_input(strMonitorLogTitle);
   logger.serialLogging = false;
-  println_prog_str(strAborted);
 }
 
 /* Dump the contents of a log file specified by the user. If 'interactive' is true, the user will
@@ -578,7 +608,7 @@ void log_management_dump(boolean interactive)
   boolean done = false, found=false;
   // The number of lines processed in the log file
   int count = 1;
-  // The number of lines printed from the log file
+  // The number of lines printed from the log file on the current "screen"
   int linesPrinted = 0;
   while(!done)
   {
@@ -638,9 +668,10 @@ void log_management_dump(boolean interactive)
       println_prog_str(strAborted);
       break;
     }
-    if (interactive && linesPrinted % LOG_LINES_PER_PAGE == 0) {
+    if (interactive && linesPrinted == 30) {
       // Wait for user input
       read_input(strPressEnter);
+      linesPrinted = 0;
     }
   } 
   file.close();
@@ -674,7 +705,7 @@ void main_menu()
         command_setdate();
         break;
       case '5':
-        command_test_sd();
+        diagnostics_menu();
         break;
       default:
         println_prog_str(strInvalidEntry);

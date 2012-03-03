@@ -75,7 +75,7 @@ HausProx::HausProx()
   /* Initalize globals to default values */
   openHouseMode = false;
   openHouseDuration = 3*60*60;
-  doorEntryDuration = 10;
+  doorEntryDuration = 30;
   lastDoorLocked = true;
 //  strcpy(password, "123");
 }

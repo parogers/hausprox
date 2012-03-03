@@ -1,0 +1,16 @@
+HID Card Reader
+---------------
+
+Pinout
+
+* Red = 5-16VDC
+* Black = GND
+* Green = Data
+* White = Clock
+* Drain = Shield GND
+* Orange = Green LED
+* Brown = Red LED
+* Yellow = Beep
+* Blue = Hold
+* Violet = Card hold
+

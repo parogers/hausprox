@@ -41,8 +41,8 @@ typedef char serial_t[SERIAL_LEN+1];
 class CardInfo
 {
   public:
-    //char serial[SERIAL_LEN+1];
     serial_t serial;
+    // The 'slot' the card occupies in the database (starts at 0)
     unsigned int slot;
     boolean enabled;
     
@@ -78,10 +78,10 @@ class CardDatabase
      * leaves info unchanged and returns the error code. */
     int lookupCard(char *serial, CardInfo &info);
 
-    /* Retreive a card given the slot number */
+    /* Retreive a card given the slot number (index starts at 0) */
     int getCard(unsigned int slot, CardInfo &info);
 
-    /* Saves a card in the database */
+    /* Saves a card in the database (index from 0) */
     int putCard(unsigned int slot, CardInfo &info);
 
     /* Inserts card data into the database at the first empty slot, or appended if
