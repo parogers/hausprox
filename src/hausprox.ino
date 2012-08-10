@@ -37,6 +37,8 @@
 /* Strings */
 /***********/
 
+PROGMEM const prog_char strVersion[] = {"v1.0"};
+
 // Login screen
 PROGMEM const prog_char strLoginPrompt[] = {"\nWelcome to HAUS|PROX\n====================\n\nPassword: "};
 PROGMEM const prog_char strLoginDenied[] = {"Invalid password\n"};
@@ -48,6 +50,7 @@ PROGMEM const prog_char strLogoutMessage[] = {"Logged out"};
 PROGMEM const prog_char strMainMenu[] = {"\n**haus|prox**\n\n[1] Status\n[2] Manage cards\n[3] Manage log files\n[4] Change date/time\n[5] Diagnostics\n[9] Logout\n\n> "};
 
 // Strings for status menu
+PROGMEM const prog_char strVersionStatus[] = {"Version:        "};
 PROGMEM const prog_char strSDCardStatus[] = {"SD enabled:     "};
 PROGMEM const prog_char strDoorStatus[] = {"Door locked:    "};
 PROGMEM const prog_char strOpenHouseStatus[] = {"Open house:     "};
@@ -307,18 +310,18 @@ void login_screen()
 
 void command_status()
 {
+  /* Show the version number */
+  print_prog_str(strVersionStatus);
+  println_prog_str(strVersion);
   /* Display the open house status */
   print_prog_str(strOpenHouseStatus);
-  print_prog_str(YESNO(hausProx.openHouseMode));
-  Serial.println();
+  println_prog_str(YESNO(hausProx.openHouseMode));
   /* Display SD card status */
   print_prog_str(strSDCardStatus);
-  print_prog_str(YESNO(hausProx.sdEnabled));
-  Serial.println();
+  println_prog_str(YESNO(hausProx.sdEnabled));
   /* Display the door lock status */
   print_prog_str(strDoorStatus);
-  print_prog_str(YESNO(hausProx.door.isLocked()));
-  Serial.println();
+  println_prog_str(YESNO(hausProx.door.isLocked()));
   /* Display the date/time */
   clock.update();
   clock.formatDateTime(input, sizeof(input));

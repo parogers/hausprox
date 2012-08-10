@@ -286,7 +286,7 @@ boolean HausProx::load_config()
   File file = SD.open(CONFIG_FILE, FILE_READ);
   if (!file) {
     // Log the error
-    print_prog_str(strErrorLoadingConfig);
+    println_prog_str(strErrorLoadingConfig);
     return false;
   }
   
