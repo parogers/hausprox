@@ -128,6 +128,10 @@ boolean CardDatabase::parseCard(char *line, CardInfo &info)
 
 int CardDatabase::lookupCard(char *serial, CardInfo &info)
 {
+  if (!SD.exists(DB_FILE)) {
+    return DATABASE_DOES_NOT_EXIST;
+  }
+  
   /* Load the database */
   File file = SD.open(DB_FILE, FILE_READ);
   if (!file) {
@@ -150,7 +154,7 @@ int CardDatabase::lookupCard(char *serial, CardInfo &info)
     
     // If we reach the end of file, the record wasn't found
     if (ret == DATABASE_EOF) {
-      ret = DATABASE_DOES_NOT_EXIST;
+      ret = DATABASE_RECORD_NOT_FOUND;
       break;
     }
     // If we hit an error reading a record, pass that error back on return
@@ -218,6 +222,10 @@ int CardDatabase::putCard(unsigned int slot, CardInfo &info)
     /* Overwrite an existing record */
     off = slot*RECORD_LEN;
   }
+  
+//  Serial.println(off);
+//  Serial.println(size);
+//  Serial.println(slot);
 
   if (off > size || !file.seek(off)) {
     file.close();
@@ -241,12 +249,12 @@ int CardDatabase::insertCard(CardInfo &info)
   tmp.setBlank();
   
   int ret = lookupCard(tmp.serial, tmp);
-  if (ret == DATABASE_DOES_NOT_EXIST) {
-    // No blank spots so append the record to the file instead
-    return putCard(-1, info);
+  if (ret == DATABASE_SUCCESS) {
+    // Overwrite the blank record
+    return putCard(tmp.slot, info);
   }
-  // Overwrite the blank record
-  return putCard(tmp.slot, info);
+  // No blank spots so append the record to the file instead
+  return putCard(-1, info);
 }
 
 const prog_char *CardDatabase::getErrorStr(int code)
@@ -262,7 +270,7 @@ const prog_char *CardDatabase::getErrorStr(int code)
       return strRecordTooLong;
     case  DATABASE_INVALID_RECORD:
       return strInvalidRecord;
-    case  DATABASE_DOES_NOT_EXIST:
+    case  DATABASE_RECORD_NOT_FOUND:
       return strDatabaseNotFound;
     case DATABASE_EOF:
       return strDatabaseEOF;

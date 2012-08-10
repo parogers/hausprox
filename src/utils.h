@@ -54,13 +54,16 @@ void print_prog_str(const prog_char *str);
 /* Prints a string with an additional newline character */
 void println_prog_str(const prog_char *str);
 
+/* Tests if the given character string equals the string stored in program memory */
+boolean prog_str_equals(const prog_char *str, const char *str2);
+
 /* Decodes a binary coded decimal number */
 byte decodeBCD(byte data);
 
 /* Encode a value as BCD */
 byte encodeBCD(byte data);
 
-/* Trims newline characters off of the given string */
+/* Trims whitespace characters from both ends of a string */
 void trim(char *buf);
 
 #endif

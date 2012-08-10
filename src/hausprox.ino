@@ -30,18 +30,30 @@
  * -battery backup not working
  * +review log - caught in loop?
  * +monitor log - not processing events
+ * -print card db across then down
  */
 
 /***********/
 /* Strings */
 /***********/
 
+// Login screen
+PROGMEM const prog_char strLoginPrompt[] = {"\nWelcome to HAUS|PROX\n====================\n\nPassword: "};
+PROGMEM const prog_char strLoginDenied[] = {"Invalid password\n"};
+PROGMEM const prog_char strLoginDeniedLog[] = {"Login attempt failed"};
+PROGMEM const prog_char strLoginMessage[] = {"Login success"};
+PROGMEM const prog_char strLogoutMessage[] = {"Logged out"};
+
 // Strings for main screen
-PROGMEM const prog_char strMainMenu[] = {"\n**haus|prox**\n\n[1] Status\n[2] Manage cards\n[3] Manage log files\n[4] Change date/time\n[5] Diagnostics\n\n> "};
-PROGMEM const prog_char strSDCardStatus[] = {"SD enabled:  "};
-PROGMEM const prog_char strDoorStatus[] = {"Door locked: "};
-PROGMEM const prog_char strOpenHouseStatus[] = {"Open house:  "};
-PROGMEM const prog_char strDateStatus[] = {"Date/time:   "};
+PROGMEM const prog_char strMainMenu[] = {"\n**haus|prox**\n\n[1] Status\n[2] Manage cards\n[3] Manage log files\n[4] Change date/time\n[5] Diagnostics\n[9] Logout\n\n> "};
+
+// Strings for status menu
+PROGMEM const prog_char strSDCardStatus[] = {"SD enabled:     "};
+PROGMEM const prog_char strDoorStatus[] = {"Door locked:    "};
+PROGMEM const prog_char strOpenHouseStatus[] = {"Open house:     "};
+PROGMEM const prog_char strDateStatus[] = {"Date/time:      "};
+PROGMEM const prog_char strDoorLenStatus[] = {"Door entry len: "};
+PROGMEM const prog_char strOpenLenStatus[] = {"Open house len: "};
 
 // Strings for date/time
 PROGMEM const prog_char strDateTimePrompt[] = {"Enter YY-MM-DD HH:MM:SS? "};
@@ -54,12 +66,14 @@ PROGMEM const prog_char strNo[] = {"no"};
 PROGMEM const prog_char strInvalidEntry[] = {"Invalid entry"};
 PROGMEM const prog_char strAborted[] = {"Aborted"};
 PROGMEM const prog_char strSuccess[] = {"Success"};
+PROGMEM const prog_char strCardAdded[] = {"Card added to database"};
 
 // Strings for card management screen
-PROGMEM const prog_char strCardMenu[] = {"\n**Card Management**\n\n[1] List cards\n[2] Add\n[3] Delete\n[4] Edit\n[9] Back to main\n\n> "};
-PROGMEM const prog_char strAddCardTitle[] = {"\n**Add card**\n\n"};
-PROGMEM const prog_char strEditCardTitle[] = {"\n**Edit card**\n\n"};
-PROGMEM const prog_char strDeleteCardTitle[] = {"\n**Delete card**\n\n"};
+PROGMEM const prog_char strCardMenu[] = {"\n**Card Management**\n\n[1] List cards\n[2] Add\n[3] Delete\n[4] Edit\n[5] Scan to add\n[9] Back to main\n\n> "};
+PROGMEM const prog_char strScanAddCardTitle[] = {"\nSwipe your cards nows."};
+PROGMEM const prog_char strAddCardTitle[] = {"\n**Add cards**\n\n"};
+PROGMEM const prog_char strEditCardTitle[] = {"\n**Edit cards**\n\n"};
+PROGMEM const prog_char strDeleteCardTitle[] = {"\n**Delete cards**\n\n"};
 PROGMEM const prog_char strSlotPrompt[] = {"Slot number? "};
 PROGMEM const prog_char strEditingCard[] = {"Editing card "};
 PROGMEM const prog_char strDeletingCard[] = {"Deleting card "};
@@ -77,7 +91,7 @@ PROGMEM const prog_char strBlank[] = {" - blank"};
 PROGMEM const prog_char strLogMenu[] = {"\n**Log Management**\n\n[1] Review log\n[2] Dump log contents\n[3] Monitor log\n[9] Back to main\n\n> "};
 PROGMEM const prog_char strReviewLogTitle[] = {"\n**Review log**\n"};
 PROGMEM const prog_char strDumpLogTitle[] = {"\n**Dump log**\n"};
-PROGMEM const prog_char strMonitorLogTitle[] = {"\n**Monitoring log**\n\nPress enter to stop"};
+PROGMEM const prog_char strMonitorLogTitle[] = {"\n**Monitoring log**\n\nPress enter to stop."};
 PROGMEM const prog_char strLogInstructions[] = {"\n\nEnter a blank to use current year, month or day.\n\n"};
 PROGMEM const prog_char strEnterYear[] = {"Year? (2 digits) "};
 PROGMEM const prog_char strEnterMonth[] = {"Month? "};
@@ -85,10 +99,12 @@ PROGMEM const prog_char strEnterDay[] = {"Day? (0=all) "};
 PROGMEM const prog_char strLogNotFound[] = {"Log file not found: "};
 PROGMEM const prog_char strNoLogEntries[] = {"No entries found"};
 PROGMEM const prog_char strSearchingLog[] = {"Scanning log file: "};
-PROGMEM const prog_char strPressEnter[] = {"\n<<Press enter to continue>>\n"};
+PROGMEM const prog_char strPressEnter[] = {"\n<<Press enter to continue or 'q' to stop>>\n"};
 
 // Strings for the diagnostics menu
-PROGMEM const prog_char strDiagnosticsMenu[] = {"\n**Diagnostics Menu**\n\n[1] Beep test\n[2] Strike test\n[3] SD card test\n[9] Back to main\n\n> "};
+PROGMEM const prog_char strDiagnosticsMenu[] = {"\n**Diagnostics Menu**\n\n[1] Beep test\n[2] Strike test\n[3] Card swipe test\n[9] Back to main\n\n> "};
+PROGMEM const prog_char strScanToAdd[] = {"\nSwip your cards now to add to the database. Press [Enter] to stop."};
+PROGMEM const prog_char strScanToPrint[] = {"\nSwip your cards now. Press [Enter] to stop."};
 
 // Convenience macro for printing yes/no
 #define YESNO(b)              ((b) ? strYes : strNo)
@@ -103,6 +119,8 @@ HausProx hausProx;
 
 /* The global buffer for storing user input */
 char input[25];
+/* Amount of time (seconds) since the user provided input */
+int inactivityTimer;
 
 /*************/
 /* Functions */
@@ -111,7 +129,7 @@ char input[25];
 /* Reads a line of input from Serial, up to 'maxlen-1' chars. The returned string is always
  * null-terminated. This function calls 'handle_events' while it waits for input, so the 
  * program will be responsive to events while inputting data. */
-void read_input(const prog_char *msg)
+void read_input(const prog_char *msg, boolean echo=true)
 {
   int pos = 0, maxlen=sizeof(input);
 
@@ -137,13 +155,17 @@ void read_input(const prog_char *msg)
   }
   /* Be sure to null terminate the string */
   input[pos] = 0;
+//  if (echo) {
+    // Echo the input
   Serial.println(input);
+//  }
 }
 
 /* Displays the list of cards in the database, prompts the user for a slot number and
  * loads the card data. */
 boolean read_card(CardInfo &info)
 {
+  // Print the card database
   print_cards();
   while(1) 
   {
@@ -210,6 +232,20 @@ int read_int(const prog_char *msg, int def)
   }
 }
 
+/* Waits for the user to scan a card at the reader, or press enter to cancel. Returns false if they cancel,
+ * true if a card was scanned. */
+boolean wait_for_card()
+{
+  while(!hausProx.reader.hasCardData())
+  {
+    // Wait for the user to hit enter
+    if (Serial.available() > 0 && Serial.read() == '\n') {
+      return false;
+    }
+  }
+  return true;
+}
+
 void print_card_cb(CardInfo &info)
 {
   Serial.print('[');
@@ -231,7 +267,10 @@ void print_card_cb(CardInfo &info)
 /* Prints the contents of the card database */
 void print_cards()
 {
-  hausProx.database.enumerateRecords(print_card_cb);
+  int err = hausProx.database.enumerateRecords(print_card_cb);
+  if (err != DATABASE_SUCCESS) {
+    println_prog_str(hausProx.database.getErrorStr(err));
+  }
 }
 
 /* Prints the date/time to Serial */
@@ -243,22 +282,24 @@ void print_datetime()
   Serial.println(input);
 }
 
-#if 0
-void show_login_screen()
+/****************/
+/* Login screen */
+/****************/
+
+void login_screen()
 {
-  char buffer[10];
-  print_prog_str(strWelcomeMessage);
   while (1) {
-    print_prog_str(strLoginPrompt);
-    read_input(buffer, sizeof(buffer));
-    //Serial.println(buffer);
-    if (strcmp(buffer, password) == 0) break;
+    // Prompt for the password, but don't echo the input
+    read_input(strLoginPrompt, false);
+    if (hausProx.check_password(input)) {
+      break;
+    }
     delay(1000);
-    logger.logMessage(LOG_ADMIN, strAdminDenied);
+    logger.logMessage(LOG_ADMIN, strLoginDeniedLog);
+    print_prog_str(strLoginDenied);
   }
   logger.logMessage(LOG_ADMIN, strLoginMessage);
 }
-#endif
 
 /***************/
 /* Status menu */
@@ -283,6 +324,14 @@ void command_status()
   clock.formatDateTime(input, sizeof(input));
   print_prog_str(strDateStatus);
   Serial.println(input);
+  /* Display the door entry duration */
+  print_prog_str(strDoorLenStatus);
+  Serial.print(hausProx.doorEntryDuration);
+  Serial.println(" s");
+  /* Display the open house duration */
+  print_prog_str(strOpenLenStatus);
+  Serial.print(hausProx.openHouseDuration);
+  Serial.println(" s");
 }
 
 /******************/
@@ -343,7 +392,8 @@ void diagnostics_menu()
         hausProx.door.unlock(5);
         break;
       case '3':
-        // SD card test
+        // Card swipe test
+        card_management_scan(false);
         break;
       case '9':
         return;
@@ -363,20 +413,20 @@ void diagnostics_menu()
 /* Card management menu */
 /************************/
 
-void card_management_add()
+/* Prompts the user to manually add a card to the database */
+boolean card_management_add()
 {
   CardInfo info;
   int ret;
-  print_prog_str(strAddCardTitle);
 
+  // Read the serial number
   while(1) 
   {
-    // Let them enter a new serial (or blank to keep existing number if editing)
     read_input(strCardPrompt);
     if (input[0] == 0) {
       // Aborted adding
       println_prog_str(strAborted);
-      return;
+      return false;
     }
     // Trim the newline
     trim(input);
@@ -388,15 +438,15 @@ void card_management_add()
 
     // Make sure the serial doesn't already exist
     ret = hausProx.database.lookupCard(input, info);
-    if (ret == DATABASE_DOES_NOT_EXIST) {
-      // The serial is not taken
+    if (ret == DATABASE_RECORD_NOT_FOUND || ret == DATABASE_DOES_NOT_EXIST) {
+      // The serial is not taken or the database doesn't exist
       break;
     } else if (ret == DATABASE_SUCCESS) {
       // Serial is already taken
       println_prog_str(strSerialExists);
     } else {
       println_prog_str(hausProx.database.getErrorStr(ret));
-      return;
+      return true;
     }
   }
   strcpy(info.serial, input);
@@ -405,7 +455,7 @@ void card_management_add()
   ret = read_yesno(strActivePrompt);
   if (ret == -1) {
       println_prog_str(strAborted);
-      return;
+      return false;
   }
   info.enabled = ret;
   
@@ -413,8 +463,57 @@ void card_management_add()
   ret = hausProx.database.insertCard(info);
   // Display the result (will also print 'Success' on success)
   println_prog_str(hausProx.database.getErrorStr(ret));
+  return true;
 }
 
+/* Lets the user scan cards and automatically adds them to the database disabled */
+void card_management_scan(boolean add)
+{
+  if (add) {
+    println_prog_str(strScanToAdd);
+  } else {
+    println_prog_str(strScanToPrint);
+  }
+  while(1)
+  {
+    // Wait for the user to scan a card or cancel
+    if (!wait_for_card()) break;
+  
+    // Read the card data
+    CardInfo info;
+    int err = hausProx.reader.readCard(info.serial, sizeof(info.serial));
+
+    // Check for errors
+    if (err != 0)
+    {
+      /* Log the error and the contents of the card buffer */
+      println_prog_str(CardReader::getErrorStr(err));
+      hausProx.reader.printBuffer(Serial);
+      Serial.print('\n');
+      continue;
+    }
+
+    // Clear the card buffer
+    hausProx.reader.clearCardData();
+
+    // Display the serial number
+    Serial.println(info.serial);
+
+    if (add) {
+      // Add the card but disable it
+      info.enabled = false;
+      err = hausProx.database.insertCard(info);
+      if (err == DATABASE_SUCCESS) {
+        println_prog_str(strCardAdded);
+      } else {
+        // Display the error
+        println_prog_str(hausProx.database.getErrorStr(err));
+      }
+    }
+  }
+}
+
+/* User edits a card entry in the database */
 void card_management_edit()
 {
   // Lookup a card in the database
@@ -466,22 +565,24 @@ void card_management_edit()
   }
 }
 
-void card_management_delete()
+boolean card_management_delete()
 {
   CardInfo info;
-  print_prog_str(strDeleteCardTitle);
+  
+  // Prompt the user to enter a card number
   if (!read_card(info)) {
-    return;
+    return false;
   }
 
   // Ask the user for confirmation
   print_prog_str(strDeletingCard);
   Serial.println(info.serial);
 
-  if (read_yesno(strConfirmPrompt) != 1) {
+  if (read_yesno(strConfirmPrompt) != 1) 
+  {
     // The user entered a blank line, or entered 'no'
     println_prog_str(strAborted);
-    return;
+    return true;
   }
   /* Note that cards are never deleted from the database. Instead the information is blankked-out
    * (tombstoned) and reused later when a card is inserted. */
@@ -489,6 +590,7 @@ void card_management_delete()
   int ret = hausProx.database.putCard(info.slot, info);
   // Display the result (will also print 'Success' on success)
   println_prog_str(hausProx.database.getErrorStr(ret));
+  return true;
 }
 
 void card_management_menu()
@@ -503,15 +605,21 @@ void card_management_menu()
         break;
       case '2':
         // Add card entry
-        card_management_add();
+        print_prog_str(strAddCardTitle);
+        while(card_management_add()) ;
         break;
       case '3':
         // Remove entry
-        card_management_delete();
+        print_prog_str(strDeleteCardTitle);
+        while(card_management_delete()) ;
         break;
       case '4':
         // Editing an entry
         card_management_edit();
+        break;
+      case '5':
+        // Scan to add cards
+        card_management_scan(true);
         break;
       case '9':
         // Back to main menu
@@ -547,6 +655,7 @@ void log_management_menu()
   }
 }
 
+/* Logs all activity to the serial interface until the user presses enter */
 void log_management_monitor()
 {
   logger.serialLogging = true;
@@ -668,9 +777,10 @@ void log_management_dump(boolean interactive)
       println_prog_str(strAborted);
       break;
     }
-    if (interactive && linesPrinted == 30) {
-      // Wait for user input
+    if (interactive && linesPrinted == LOG_LINES_PER_PAGE) {
+      // Wait for user input before continuing, or 'q' to quit
       read_input(strPressEnter);
+      if (input[0] == 'q') break;
       linesPrinted = 0;
     }
   } 
@@ -707,6 +817,9 @@ void main_menu()
       case '5':
         diagnostics_menu();
         break;
+      case '9':
+        println_prog_str(strLogoutMessage);
+        return;
       default:
         println_prog_str(strInvalidEntry);
         break;
@@ -753,6 +866,7 @@ void setup()
 
 void loop()
 {
+  login_screen();
   main_menu();
 }
 

@@ -32,6 +32,7 @@
 #define CARD_PAD_FAILURE         -7
 #define CARD_LEADING_ZEROS       -8
 #define CARD_BUFFER_TOO_SMALL    -9
+#define CARD_NO_DATA            -10
 
 #define CARD_BUFFER_LEN         255
 #define CARD_NUM_BITS           255
@@ -54,8 +55,6 @@ class CardReader
     int bufferPos;
     int bytePos;
     int bitPos;
-    
-    boolean appendData(int bit);
     
   public:
     CardReader();
@@ -87,6 +86,8 @@ class CardReader
 
     void clearCardData();
     boolean hasCardData();
+
+    void printBuffer(Stream&);
 
     int getData(int pos);
     int getBitsRead() { return bitsRead; }

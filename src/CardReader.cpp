@@ -68,6 +68,7 @@ PROGMEM const prog_char strLRCFail[] = {"LRC failure"};
 PROGMEM const prog_char strTrailingZeros[] = {"Expected trailing zeros"};
 PROGMEM const prog_char strPaddingFail[] = {"Data pad fail"};
 PROGMEM const prog_char strLeadingZeros[] = {"Leading zeros expected"};
+PROGMEM const prog_char strUnknown[] = {"Unknown error"};
 
 /**************/
 /* CardReader */
@@ -104,6 +105,11 @@ int CardReader::readCard(unsigned int &facility, unsigned int &card)
 {
     int data = 0, d0, d1, d2, d3, parity, n;
     int pos = 0;
+    
+    if (!hasCardData()) {
+      // Actually no data to read
+      return CARD_NO_DATA;
+    }
 
     /* Skip the first 25 bits of data (make sure they are zeros) */
     for (n = 0; n < 25; n++)
@@ -272,11 +278,7 @@ const prog_char *CardReader::getErrorStr(int code)
     case CARD_LEADING_ZEROS:
       return strLeadingZeros;
   }
-  /* All other unknown errors (16-bit code, at most 5 digits, plus a sign,
-   * plus '#', plus null) */
-  char err[8];
-  sprintf(err, "#%d", code);
-  return err;
+  return strUnknown;
 }
 
 void CardReader::receiveCardData()
@@ -288,7 +290,10 @@ void CardReader::receiveCardData()
   }
   else if (digitalRead(presentPin) == LOW)
   {
-    appendData(digitalRead(dataPin));
+    if (bufferPos >= 0 && bufferPos < CARD_BUFFER_LEN) {
+      data[bufferPos++] = digitalRead(dataPin);
+      bitsRead++;
+    }
   }
 }
 
@@ -307,26 +312,22 @@ boolean CardReader::hasCardData()
   return bitsRead == CARD_NUM_BITS;
 }
 
-boolean CardReader::appendData(int bit)
+void CardReader::printBuffer(Stream &stream)
 {
-  if (bufferPos >= CARD_BUFFER_LEN) {
-    return false;
+  // Dump the contents of the reader buffer
+  int numBits = getBitsRead();
+  char ch;
+  for (int n = 0; n < numBits; n++) 
+  {
+    if (getData(n) == 1) ch = '1';
+    else ch = '0';
+    stream.print(ch);
   }
-  data[bufferPos++] = bit;
-  bitsRead++;
-/*    
-  data[bytePos] |= bit << bitPos;
-  bitPos++;
-  if (bitPos > 7) {
-    bitPos = 0;
-    bytePos++;
-  }*/
-  return true;
 }
 
 int CardReader::getData(int pos)
 {
-  if (pos < CARD_BUFFER_LEN)
+  if (pos >= 0 && pos < CARD_BUFFER_LEN)
     return 1-data[pos];
   return -1;
   /* 

@@ -103,6 +103,20 @@ void print_prog_str(const prog_char str[])
   print_prog_str(&Serial, str);
 }
 
+boolean prog_str_equals(const prog_char *str1, const char *str2)
+{
+  char ch1, ch2;
+  if(!str1 || !str2) return false;
+  while(1)
+  {
+    ch1 = pgm_read_byte(str1++);
+    ch2 = *str2++;
+    if (!ch1 && !ch2) break;
+    if (ch1 != ch2) return false;
+  }
+  return true;
+}
+
 byte decodeBCD(byte data)
 {
   return 10*(data >> 4) + (data & 0xF);
@@ -113,9 +127,26 @@ byte encodeBCD(byte data)
   return ((data/10) << 4) | ((data%10) & 0xF);
 }
 
-void trim(char *buf)
+void trim(char *str)
 {
-  int n = strlen(buf)-1;
-  while(n > 0 && buf[n] == '\n') buf[n--] = 0;
+  // The whitespace characters
+  char *whitespace = "\n\r \t";
+  int n = strlen(str)-1;
+  
+  // Trim trailing whitespace
+  while(n >= 0 && strchr(whitespace, str[n]) != NULL) str[n--] = 0;
+  
+  // Skip past the whitespace and find the start of the string
+  for(n = 0; str[n] != 0; n++)
+  {
+    if (strchr(whitespace, str[n]) == NULL)
+    {
+      // Found a non-whitespace character. Shift the entire string back so that character is 
+      // placed at position 0 in the string.
+      int start = n;
+      for(; str[n-1] != 0; n++) str[n-start] = str[n];
+      break;
+    }
+  }
 }
 

@@ -29,10 +29,11 @@
 #define DATABASE_RECORD_TOO_SHORT   -2
 #define DATABASE_RECORD_TOO_LONG    -3
 #define DATABASE_INVALID_RECORD     -4
-#define DATABASE_DOES_NOT_EXIST     -5
+#define DATABASE_RECORD_NOT_FOUND   -5
 #define DATABASE_EOF                -6
+#define DATABASE_DOES_NOT_EXIST     -7
 
-#define SERIAL_LEN       (3+1+5)
+#define SERIAL_LEN                  (3+1+5)
 
 // Card serial number type
 typedef char serial_t[SERIAL_LEN+1];

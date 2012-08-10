@@ -127,23 +127,13 @@ void Logger::logMessage(int level, const prog_char *msg, const char *serial, Car
     int n, numBits = reader->getBitsRead();
     char ch;
     if (serialLogging) {
-      print_prog_str(strBufferPart);
-      for (n = 0; n < numBits; n++) 
-      {
-        if (reader->getData(n) == 1) ch = '1';
-        else ch = '0';
-        Serial.print(ch);
-      }
+      // Print the card buffer contents to the serial port
+      reader->printBuffer(Serial);
       Serial.print('\n');
     }
     if (file) {
-      print_prog_str(&file, strBufferPart);
-      for (n = 0; n < numBits; n++) 
-      {
-        if (reader->getData(n) == 1) ch = '1';
-        else ch = '0';
-        file.print(ch);
-      }
+      // Print the card buffer to the log file
+      reader->printBuffer(file);
       file.print('\n');
     }
   }

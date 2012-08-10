@@ -29,7 +29,7 @@
 #include "Clock.h"
 
 /* The maximum admin password length */
-#define PASSWORD_LEN      16
+#define PASSWORD_BUF_LEN      16
 
 class HausProx
 {
@@ -49,7 +49,7 @@ class HausProx
     long           doorEntryDuration;
     
     /* The admin password */
-    //char           password[PASSWORD_LEN];
+    char           password[PASSWORD_BUF_LEN];
     
     DebouncedInput openHouseButton;
     
@@ -58,6 +58,9 @@ class HausProx
     
     /* Whether the SD card is enabled for use */
     boolean        sdEnabled;
+    
+    /* Whether scanning a card is able to currently open the door */
+    boolean        readerOpensDoor;
 
     HausProx();
 
@@ -70,7 +73,12 @@ class HausProx
     void handle_events();
     void handle_card_scanned();
     void handle_open_house();
-  
+
+    /* Loads the program config from the SD card (eg password, door open duration, etc) */
+    boolean load_config();
+    /* Compares the given text against the admin password */
+    boolean check_password(const char *input);
+
 };
 
 #endif

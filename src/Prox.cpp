@@ -27,17 +27,24 @@
 /* Constants */
 /*************/
 
-#define CLOCK             3
-#define DATA              4
-#define PRESENT           5
-#define BEEP              6
+#define PIN_CLOCK             3
+#define PIN_DATA              4
+#define PIN_PRESENT           5
+#define PIN_BEEP              6
 
-#define DOOR_LATCH        2
+#define PIN_DOOR_LATCH        2
 
-#define OPEN_HOUSE_BTN    7
+#define PIN_OPEN_HOUSE_BTN    7
 
 /* Chip select for the SD card */
-#define SD_CHIPSEL        10
+#define PIN_SD_CHIPSEL        10
+
+/* The hausprox config file */
+#define CONFIG_FILE       "hausprox.cfg"
+
+#define DEFAULT_PASSWORD        "123"
+#define DEFAULT_OPEN_DOOR_LEN   30
+#define DEFAULT_OPEN_HOUSE_LEN  (3*60*60)
 
 /***********/
 /* Strings */
@@ -66,6 +73,13 @@ PROGMEM const prog_char strDoorAlreadyUnlocked[] = {"Door is already unlocked"};
 PROGMEM const prog_char strSDInitFail[] = {"Failed to init SD card"};
 PROGMEM const prog_char strCardBuffer[] = {"Card buffer contents"};
 
+PROGMEM const prog_char strConfigPass[] = {"password"};
+PROGMEM const prog_char strConfigOpenDoor[] = {"door-open-len"};
+PROGMEM const prog_char strConfigOpenHouse[] = {"open-house-len"};
+PROGMEM const prog_char strConfigInvalid[] = {"Invalid config line: "};
+PROGMEM const prog_char strConfigBadLine[] = {"Invalid config line"};
+PROGMEM const prog_char strErrorLoadingConfig[] = {"Error loading hausprox config file"};
+
 /*********/
 /* Class */
 /*********/
@@ -73,29 +87,30 @@ PROGMEM const prog_char strCardBuffer[] = {"Card buffer contents"};
 HausProx::HausProx()
 {
   /* Initalize globals to default values */
+  readerOpensDoor = true;
   openHouseMode = false;
-  openHouseDuration = 3*60*60;
-  doorEntryDuration = 30;
+  openHouseDuration = DEFAULT_OPEN_HOUSE_LEN;
+  doorEntryDuration = DEFAULT_OPEN_DOOR_LEN;
   lastDoorLocked = true;
-//  strcpy(password, "123");
+  strcpy(password, DEFAULT_PASSWORD);
 }
 
 void HausProx::begin()
 {
   /* Set the open house button pin and internal pull-up resistor */
-  pinMode(OPEN_HOUSE_BTN, INPUT);
-  digitalWrite(OPEN_HOUSE_BTN, HIGH);
+  pinMode(PIN_OPEN_HOUSE_BTN, INPUT);
+  digitalWrite(PIN_OPEN_HOUSE_BTN, HIGH);
 
   /* Initialize the I2C bus for interfacing with the clock (arduino is bus master) */
   Wire.begin();
 
-  pinMode(SD_CHIPSEL, OUTPUT);
+  pinMode(PIN_SD_CHIPSEL, OUTPUT);
 
   /* Setup the card reader */
-  reader.begin(DATA, CLOCK, PRESENT, BEEP);
+  reader.begin(PIN_DATA, PIN_CLOCK, PIN_PRESENT, PIN_BEEP);
 
   /* Setup the door control */
-  door.begin(DOOR_LATCH);
+  door.begin(PIN_DOOR_LATCH);
 
   initSDCard();
   if (! sdEnabled ) {
@@ -103,6 +118,8 @@ void HausProx::begin()
      * it will write the message to the serial port. */
     logger.logMessage(LOG_ERROR, strSDInitFail);
   }
+
+  load_config();
   
   // Log the bootup message
   logger.logMessage(LOG_MESG, strBootupMessage);
@@ -118,11 +135,7 @@ void HausProx::begin()
 
 void HausProx::initSDCard()
 {
-  if (! SD.begin(SD_CHIPSEL) ) {
-    sdEnabled = false;
-  } else {
-    sdEnabled = true;
-  }
+  sdEnabled =  SD.begin(PIN_SD_CHIPSEL);
   /* Let the logger know if it's using the SD card or not */
   logger.sdEnabled = sdEnabled;
 }
@@ -177,6 +190,12 @@ void HausProx::handle_events()
  * will process the data, scan the database, etc. */
 void HausProx::handle_card_scanned()
 {
+  if (!readerOpensDoor) {
+    // The reader is not currently opening the door
+    return;
+  }
+
+  // Scan the card if present
   if (!reader.hasCardData()) {
     // No data present
     return;
@@ -204,7 +223,7 @@ void HausProx::handle_card_scanned()
   CardInfo info;
   int ret = database.lookupCard(serial, info);
 
-  if (ret == DATABASE_DOES_NOT_EXIST) {
+  if (ret == DATABASE_RECORD_NOT_FOUND) {
     /* The card isn't in the database */
     reader.playFailBeep();
     logger.logMessage(LOG_CARD, strDenyUnregCard, serial);
@@ -221,16 +240,16 @@ void HausProx::handle_card_scanned()
     /* Card holder is granted access */
     if (openHouseMode) {
       /* Already in open house mode, so whatever */
-      logger.logMessage(LOG_CARD, strValidOpenHouse, serial);
+      logger.logMessage(LOG_CARD, strValidOpenHouse, info.serial);
     } else {
       /* Log the entry message */
-      logger.logMessage(LOG_CARD, strAdmitEntry, serial);
+      logger.logMessage(LOG_CARD, strAdmitEntry, info.serial);
       unlock_door(doorEntryDuration);
     }
   } else {
     /* The card is disabled */
     reader.playFailBeep();
-    logger.logMessage(LOG_CARD, strDenyDisabledCard, serial);
+    logger.logMessage(LOG_CARD, strDenyDisabledCard, info.serial);
   }
 }
 
@@ -238,7 +257,7 @@ void HausProx::handle_card_scanned()
 void HausProx::handle_open_house()
 {
   /* Update the open house toggle button (handles debouncing) */
-  boolean n = (digitalRead(OPEN_HOUSE_BTN) == LOW);
+  boolean n = (digitalRead(PIN_OPEN_HOUSE_BTN) == LOW);
   openHouseButton.update(n);
   /* Check if somebody has pressed the button (goes low to high) */
   if (openHouseButton.changed && openHouseButton.state) 
@@ -255,5 +274,65 @@ void HausProx::handle_open_house()
       logger.logMessage(LOG_DOOR, strOpenHouseOn);
     }
   }
+}
+
+boolean HausProx::check_password(const char *input)
+{
+  return (strcmp(input, password) == 0);
+}
+
+boolean HausProx::load_config()
+{
+  File file = SD.open(CONFIG_FILE, FILE_READ);
+  if (!file) {
+    // Log the error
+    print_prog_str(strErrorLoadingConfig);
+    return false;
+  }
+  
+  const char *delims = "=";
+  char line[32];
+  while(1) 
+  {
+    // Read another line
+    if (!read_line(&file, line, sizeof(line))) {
+      break;
+    }
+    trim(line);
+    if (line[0] == 0) {
+      // Skip any blank lines
+      continue;
+    }
+    // Extract the name
+    char *name = strtok(line, delims);
+    // Extract the value
+    char *value = strtok(NULL, delims);
+
+    if (!name || !value) {
+      // Badly formed line
+      println_prog_str(strConfigBadLine);
+      continue;
+    }
+
+    // Trim whitespace from the name and value
+    trim(name);
+    trim(value);
+    
+    if (prog_str_equals(strConfigPass, name) && value) {
+      // Password
+      strcpy(password, value);
+    } else if (prog_str_equals(strConfigOpenDoor, name) && value) {
+      // Open door length
+      doorEntryDuration = atol(value);
+    } else if (prog_str_equals(strConfigOpenHouse, name) && value) {
+      // Open house length
+      openHouseDuration = atol(value);
+    } else {
+      print_prog_str(strConfigInvalid);
+      Serial.println(name);
+    }
+  }
+  file.close();
+  return true;
 }
 
