@@ -22,6 +22,7 @@
 #include <SD.h>
 
 #include "Prox.h"
+#include "Const.h"
 
 /*************/
 /* Constants */
@@ -45,40 +46,6 @@
 #define DEFAULT_PASSWORD        "123"
 #define DEFAULT_OPEN_DOOR_LEN   30
 #define DEFAULT_OPEN_HOUSE_LEN  (3*60*60)
-
-/***********/
-/* Strings */
-/***********/
-
-/*PROGMEM const prog_char strWelcomeMessage[] = {
-  "* * * * * * * * * * * * * * * * * * * * * *\n"\
-  "Welcome to the haus|prox door access system\n"\
-  "* * * * * * * * * * * * * * * * * * * * * *\n\n"\
-  "Please login to continue\n\n"};*/
-PROGMEM const prog_char strCardError[] = {"Error reading card"};
-PROGMEM const prog_char strValidOpenHouse[] = {"Admit entry (open house active)"};
-PROGMEM const prog_char strAdmitEntry[] = {"Admit entry"};
-PROGMEM const prog_char strDenyDisabledCard[] = {"Deny disabled card"};
-PROGMEM const prog_char strDenyUnregCard[] = {"Deny unregistered card"};
-PROGMEM const prog_char strAdminDenied[] = {"Admin access denied"};
-PROGMEM const prog_char strBootupMessage[] = {"haus|prox bootup"};
-//PROGMEM const prog_char strLoginMessage[] = {"Admin login"};
-//PROGMEM const prog_char strLoginPrompt[] = {"\nLogin: "};
-PROGMEM const prog_char strOpenHouseOn[] = {"Turn on open house"};
-PROGMEM const prog_char strOpenHouseOff[] = {"Turn off open house"};
-PROGMEM const prog_char strOpenHouseExpired[] = {"Open house expired"};
-PROGMEM const prog_char strDoorLocked[] = {"Door is locked"};
-PROGMEM const prog_char strDoorUnlocked[] = {"Door is unlocked"};
-PROGMEM const prog_char strDoorAlreadyUnlocked[] = {"Door is already unlocked"};
-PROGMEM const prog_char strSDInitFail[] = {"Failed to init SD card"};
-PROGMEM const prog_char strCardBuffer[] = {"Card buffer contents"};
-
-PROGMEM const prog_char strConfigPass[] = {"password"};
-PROGMEM const prog_char strConfigOpenDoor[] = {"door-open-len"};
-PROGMEM const prog_char strConfigOpenHouse[] = {"open-house-len"};
-PROGMEM const prog_char strConfigInvalid[] = {"Invalid config line: "};
-PROGMEM const prog_char strConfigBadLine[] = {"Invalid config line"};
-PROGMEM const prog_char strErrorLoadingConfig[] = {"Error loading hausprox config file"};
 
 /*********/
 /* Class */
@@ -119,18 +86,16 @@ void HausProx::begin()
     logger.logMessage(LOG_ERROR, strSDInitFail);
   }
 
-  load_config();
+  loadConfig();
   
   // Log the bootup message
   logger.logMessage(LOG_MESG, strBootupMessage);
 
   /* The door starts locked */
-  lock_door();
+  lockDoor();
 
   // Have the reader make a short beep
-  reader.setBeep(true);
-  delay(500);
-  reader.setBeep(false);
+  reader.beep(500);
 }
 
 void HausProx::initSDCard()
@@ -141,14 +106,14 @@ void HausProx::initSDCard()
 }
 
 /* Locks the door and logs a message */
-void HausProx::lock_door()
+void HausProx::lockDoor()
 {
   logger.logMessage(LOG_DOOR, strDoorLocked);
   door.lock();
 }
 
 /* Unlocks the door for a period of time (in seconds) and logs a message */
-void HausProx::unlock_door(long duration)
+void HausProx::unlockDoor(long duration)
 {
   if (! door.isLocked() ) {
     logger.logMessage(LOG_DOOR, strDoorAlreadyUnlocked);
@@ -159,7 +124,7 @@ void HausProx::unlock_door(long duration)
   door.unlock(duration);
 }
 
-void HausProx::handle_events()
+void HausProx::handleEvents()
 {
   /* This is where we catch the door being locked and log a message. Locking happens either inside the 
    * timer interrupt, or by explicitly calling door.lock() when the open house button is pressed. This
@@ -179,16 +144,16 @@ void HausProx::handle_events()
   lastDoorLocked = locked;
   
   /* Check if a card has been scanned */
-  handle_card_scanned();
+  handleCardScanned();
 
   /* Check if the open|haus button has been pressed */
-  handle_open_house();
+  handleOpenHouse();
 }
 
 /* Called to handle a card being scanned. The data is actually buffered up by the interrupt handler
  * attached to the clock pin. When sufficient data has been captured (255 bytes) this function 
  * will process the data, scan the database, etc. */
-void HausProx::handle_card_scanned()
+void HausProx::handleCardScanned()
 {
   if (!readerOpensDoor) {
     // The reader is not currently opening the door
@@ -214,8 +179,6 @@ void HausProx::handle_card_scanned()
     return;
   }
 
-//  logger.logMessage(LOG_CARD, strCardBuffer, NULL, &reader);
-
   // Clear the card buffer
   reader.clearCardData();
 
@@ -231,7 +194,7 @@ void HausProx::handle_card_scanned()
 
   } else if (ret != DATABASE_SUCCESS) {
     /* Log the error */
-    logger.logMessage(LOG_ERROR, database.getErrorStr(ret), serial);
+    logger.logMessage(LOG_ERROR, CardDatabase::getErrorStr(ret), serial);
     return;
   }
 
@@ -244,7 +207,7 @@ void HausProx::handle_card_scanned()
     } else {
       /* Log the entry message */
       logger.logMessage(LOG_CARD, strAdmitEntry, info.serial);
-      unlock_door(doorEntryDuration);
+      unlockDoor(doorEntryDuration);
     }
   } else {
     /* The card is disabled */
@@ -254,7 +217,7 @@ void HausProx::handle_card_scanned()
 }
 
 /* Handles the open house button being pressed */
-void HausProx::handle_open_house()
+void HausProx::handleOpenHouse()
 {
   /* Update the open house toggle button (handles debouncing) */
   boolean n = (digitalRead(PIN_OPEN_HOUSE_BTN) == LOW);
@@ -266,22 +229,27 @@ void HausProx::handle_open_house()
     openHouseMode = !openHouseMode;
     if (!openHouseMode) {
       // Turn off open house mode
-      lock_door();
+      lockDoor();
       logger.logMessage(LOG_DOOR, strOpenHouseOff);
     } else {
       // Turn on open house mode
-      unlock_door(openHouseDuration);
+      unlockDoor(openHouseDuration);
       logger.logMessage(LOG_DOOR, strOpenHouseOn);
     }
   }
 }
 
-boolean HausProx::check_password(const char *input)
+boolean HausProx::checkPassword(const char *input)
 {
   return (strcmp(input, password) == 0);
 }
 
-boolean HausProx::load_config()
+void HausProx::tick()
+{
+  door.tick();
+}
+
+boolean HausProx::loadConfig()
 {
   File file = SD.open(CONFIG_FILE, FILE_READ);
   if (!file) {
@@ -299,8 +267,8 @@ boolean HausProx::load_config()
       break;
     }
     trim(line);
-    if (line[0] == 0) {
-      // Skip any blank lines
+    if (line[0] == 0 || line[0] == '#') {
+      // Skip blank lines and comments
       continue;
     }
     // Extract the name
@@ -334,5 +302,42 @@ boolean HausProx::load_config()
   }
   file.close();
   return true;
+}
+
+int HausProx::insertCard(CardInfo &info)
+{
+  int ret = database.insertCard(info);
+  
+  if (ret == DATABASE_SUCCESS) {
+    // Successfully added the card
+    logger.logMessage(LOG_ADMIN, strInsertedCard, info.serial, NULL);
+  }
+  return ret;
+}
+
+int HausProx::deleteCard(CardInfo &info)
+{
+  serial_t serial;
+  strcpy(serial, info.serial);
+  /* Note that cards are never deleted from the database. Instead the information is blankked-out
+   * (tombstoned) and reused later when a card is inserted. */
+  info.setBlank();
+  int ret = database.putCard(info.slot, info);
+  
+  if (ret == DATABASE_SUCCESS) {
+    // Successfully added the card
+    logger.logMessage(LOG_ADMIN, strDeletedCard, serial, NULL);
+  }
+  return ret;
+}
+
+int HausProx::updateCard(CardInfo &info)
+{
+  int ret = database.putCard(info.slot, info);
+  if (ret == DATABASE_SUCCESS) {
+    // Successfully updated the card
+    logger.logMessage(LOG_ADMIN, strUpdatedCard, info.serial, NULL);
+  }
+  return ret;
 }
 

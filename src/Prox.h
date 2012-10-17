@@ -67,17 +67,26 @@ class HausProx
     void begin();
     void initSDCard();
 
-    void lock_door();
-    void unlock_door(long duration);
+    void lockDoor();
+    void unlockDoor(long duration);
   
-    void handle_events();
-    void handle_card_scanned();
-    void handle_open_house();
+    void handleEvents();
+    void handleCardScanned();
+    void handleOpenHouse();
+
+    // Called once every second to update the internal state
+    void tick();
 
     /* Loads the program config from the SD card (eg password, door open duration, etc) */
-    boolean load_config();
+    boolean loadConfig();
     /* Compares the given text against the admin password */
-    boolean check_password(const char *input);
+    boolean checkPassword(const char *input);
+    /* Inserts a card into the database and logs the insertion */
+    int insertCard(CardInfo &info);
+    /* Removes a card from the database and logs the deletion */
+    int deleteCard(CardInfo &info);
+    /* Updates a card in the database and logs the update */
+    int updateCard(CardInfo &info);
 
 };
 

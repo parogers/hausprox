@@ -55,20 +55,10 @@
 
 #include "Arduino.h"
 #include "CardReader.h"
+#include "Const.h"
 
 // Macro to verify odd parity
 #define ODD_PARITY(d0,d1,d2,d3,parity)   (((d0)+(d1)+(d2)+(d3)+(parity)) % 2 == 1)
-
-PROGMEM const prog_char strSuccess[] = {"OK"};
-PROGMEM const prog_char strPrematureEnd[] = {"Premature end of data"};
-PROGMEM const prog_char strParityFail[] = {"Parity failure"};
-PROGMEM const prog_char strInvalidBegin[] = {"Invalid start segment"};
-PROGMEM const prog_char strLRCParity[] = {"LRC parity failure"};
-PROGMEM const prog_char strLRCFail[] = {"LRC failure"};
-PROGMEM const prog_char strTrailingZeros[] = {"Expected trailing zeros"};
-PROGMEM const prog_char strPaddingFail[] = {"Data pad fail"};
-PROGMEM const prog_char strLeadingZeros[] = {"Leading zeros expected"};
-PROGMEM const prog_char strUnknown[] = {"Unknown error"};
 
 /**************/
 /* CardReader */
@@ -91,7 +81,7 @@ void CardReader::begin(int data, int clock, int present, int beep)
   pinMode(presentPin, INPUT);
   pinMode(beepPin, OUTPUT);
   // Turn off beep by default
-  setBeep(false);
+  digitalWrite(beepPin, LOW);
   clearCardData();
 }
 
@@ -239,21 +229,32 @@ int CardReader::readCard(char *serial, int maxlen)
   return CARD_SUCCESS;
 }
 
-void CardReader::setBeep(boolean b) 
+void CardReader::beep(int duration)
 {
-  digitalWrite(beepPin, b ? LOW : HIGH);
+  digitalWrite(beepPin, HIGH);
+  delay(duration);
+  digitalWrite(beepPin, LOW);
 }
 
 void CardReader::playFailBeep()
 {
-  int n;
-  for(n = 0; n < 3; n++)
+  for(int n = 0; n < 3; n++)
   {
-    setBeep(true);
+    beep(200);
     delay(200);
-    setBeep(false);
-    delay(100);
   }
+}
+
+void CardReader::playTestBeep()
+{
+  // Beep test. Short beep
+  beep(200);
+  delay(200);
+  // Long beep
+  beep(400);
+  delay(400);
+  // Short beep
+  beep(200);
 }
 
 const prog_char *CardReader::getErrorStr(int code)
@@ -267,8 +268,6 @@ const prog_char *CardReader::getErrorStr(int code)
       return strParityFail;
     case CARD_INVALID_START:
       return strInvalidBegin;
-    case CARD_LRC_PARITY_FAILURE:
-      return strLRCParity;
     case CARD_LRC_FAILURE:
       return strLRCFail;
     case CARD_TRAILING_ZEROS:
@@ -315,7 +314,7 @@ boolean CardReader::hasCardData()
 void CardReader::printBuffer(Stream &stream)
 {
   // Dump the contents of the reader buffer
-  int numBits = getBitsRead();
+  int numBits = bitsRead;
   char ch;
   for (int n = 0; n < numBits; n++) 
   {

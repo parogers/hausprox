@@ -48,8 +48,6 @@ class CardReader
     int clockPin;
     int presentPin;
     int beepPin;
-    /* Number of bits read after calling readCard */
-    int bitsRead;
 
     unsigned char data[CARD_BUFFER_LEN];
     int bufferPos;
@@ -58,6 +56,9 @@ class CardReader
     
   public:
     CardReader();
+
+    /* Number of bits read after calling readCard */
+    int bitsRead;
 
     /* Call 'begin' before using the card reader and pass in the connected pins */
     void begin(int data, int clock, int present, int beep);
@@ -74,13 +75,9 @@ class CardReader
     /* Reads the card data and copies it into the serial buffer */
     int readCard(char *serial, int maxlen);
     
-    /* Returns the number of bits read after a call to readCard. This is useful 
-     * for identifying phantom card reads caused by spurious noise on the card 
-     * present line. */
-    //int getBitsRead() { return bitsRead; }
-
-    void setBeep(boolean b);
+    void beep(int duration);
     void playFailBeep();
+    void playTestBeep();
     
     void receiveCardData();
 
@@ -90,7 +87,6 @@ class CardReader
     void printBuffer(Stream&);
 
     int getData(int pos);
-    int getBitsRead() { return bitsRead; }
 };
 
 #endif

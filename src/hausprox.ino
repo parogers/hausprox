@@ -23,96 +23,17 @@
 #include <TimerOne.h>
 
 #include "Prox.h"
-
-/* TODO:
- * -autoinit SD card if a previous attempt to access it failed
- * -use the SD card present pin
- * -battery backup not working
- * +review log - caught in loop?
- * +monitor log - not processing events
- * -print card db across then down
- */
-
-/***********/
-/* Strings */
-/***********/
-
-PROGMEM const prog_char strVersion[] = {"v1.0"};
-
-// Login screen
-PROGMEM const prog_char strLoginPrompt[] = {"\nWelcome to HAUS|PROX\n====================\n\nPassword: "};
-PROGMEM const prog_char strLoginDenied[] = {"Invalid password\n"};
-PROGMEM const prog_char strLoginDeniedLog[] = {"Login attempt failed"};
-PROGMEM const prog_char strLoginMessage[] = {"Login success"};
-PROGMEM const prog_char strLogoutMessage[] = {"Logged out"};
-
-// Strings for main screen
-PROGMEM const prog_char strMainMenu[] = {"\n**haus|prox**\n\n[1] Status\n[2] Manage cards\n[3] Manage log files\n[4] Change date/time\n[5] Diagnostics\n[9] Logout\n\n> "};
-
-// Strings for status menu
-PROGMEM const prog_char strVersionStatus[] = {"Version:        "};
-PROGMEM const prog_char strSDCardStatus[] = {"SD enabled:     "};
-PROGMEM const prog_char strDoorStatus[] = {"Door locked:    "};
-PROGMEM const prog_char strOpenHouseStatus[] = {"Open house:     "};
-PROGMEM const prog_char strDateStatus[] = {"Date/time:      "};
-PROGMEM const prog_char strDoorLenStatus[] = {"Door entry len: "};
-PROGMEM const prog_char strOpenLenStatus[] = {"Open house len: "};
-
-// Strings for date/time
-PROGMEM const prog_char strDateTimePrompt[] = {"Enter YY-MM-DD HH:MM:SS? "};
-PROGMEM const prog_char strDateTimeOkay[] = {"Date/time changed\n"};
-PROGMEM const prog_char strDateTimeIs[] = {"The time is "};
-
-// Generall-purpose strings
-PROGMEM const prog_char strYes[] = {"yes"};
-PROGMEM const prog_char strNo[] = {"no"};
-PROGMEM const prog_char strInvalidEntry[] = {"Invalid entry"};
-PROGMEM const prog_char strAborted[] = {"Aborted"};
-PROGMEM const prog_char strSuccess[] = {"Success"};
-PROGMEM const prog_char strCardAdded[] = {"Card added to database"};
-
-// Strings for card management screen
-PROGMEM const prog_char strCardMenu[] = {"\n**Card Management**\n\n[1] List cards\n[2] Add\n[3] Delete\n[4] Edit\n[5] Scan to add\n[9] Back to main\n\n> "};
-PROGMEM const prog_char strScanAddCardTitle[] = {"\nSwipe your cards nows."};
-PROGMEM const prog_char strAddCardTitle[] = {"\n**Add cards**\n\n"};
-PROGMEM const prog_char strEditCardTitle[] = {"\n**Edit cards**\n\n"};
-PROGMEM const prog_char strDeleteCardTitle[] = {"\n**Delete cards**\n\n"};
-PROGMEM const prog_char strSlotPrompt[] = {"Slot number? "};
-PROGMEM const prog_char strEditingCard[] = {"Editing card "};
-PROGMEM const prog_char strDeletingCard[] = {"Deleting card "};
-PROGMEM const prog_char strCardPrompt[] = {"Serial? (FFF-CCCCC) "};
-PROGMEM const prog_char strActivePrompt[] = {"Card active? "};
-PROGMEM const prog_char strConfirmPrompt[] = {"Confirm? "};
-PROGMEM const prog_char strSerialExists[] = {"Serial number is taken"};
-
-// Strings for printing the card database
-PROGMEM const prog_char strActive[] = {" - active"};
-PROGMEM const prog_char strDisabled[] = {" - disabled"};
-PROGMEM const prog_char strBlank[] = {" - blank"};
-
-// Strings for log management
-PROGMEM const prog_char strLogMenu[] = {"\n**Log Management**\n\n[1] Review log\n[2] Dump log contents\n[3] Monitor log\n[9] Back to main\n\n> "};
-PROGMEM const prog_char strReviewLogTitle[] = {"\n**Review log**\n"};
-PROGMEM const prog_char strDumpLogTitle[] = {"\n**Dump log**\n"};
-PROGMEM const prog_char strMonitorLogTitle[] = {"\n**Monitoring log**\n\nPress enter to stop."};
-PROGMEM const prog_char strLogInstructions[] = {"\n\nEnter a blank to use current year, month or day.\n\n"};
-PROGMEM const prog_char strEnterYear[] = {"Year? (2 digits) "};
-PROGMEM const prog_char strEnterMonth[] = {"Month? "};
-PROGMEM const prog_char strEnterDay[] = {"Day? (0=all) "};
-PROGMEM const prog_char strLogNotFound[] = {"Log file not found: "};
-PROGMEM const prog_char strNoLogEntries[] = {"No entries found"};
-PROGMEM const prog_char strSearchingLog[] = {"Scanning log file: "};
-PROGMEM const prog_char strPressEnter[] = {"\n<<Press enter to continue or 'q' to stop>>\n"};
-
-// Strings for the diagnostics menu
-PROGMEM const prog_char strDiagnosticsMenu[] = {"\n**Diagnostics Menu**\n\n[1] Beep test\n[2] Strike test\n[3] Card swipe test\n[9] Back to main\n\n> "};
-PROGMEM const prog_char strScanToAdd[] = {"\nSwip your cards now to add to the database. Press [Enter] to stop."};
-PROGMEM const prog_char strScanToPrint[] = {"\nSwip your cards now. Press [Enter] to stop."};
+#include "Const.h"
 
 // Convenience macro for printing yes/no
 #define YESNO(b)              ((b) ? strYes : strNo)
 // When reviewing log files, the number of lines to print before prompting the user to hit enter
 #define LOG_LINES_PER_PAGE    30
+
+#define INPUT_NEWLINE         '\r'
+
+// Length of the user input buffer
+#define MAX_INPUT_LEN         25
 
 /***********/
 /* Globals */
@@ -122,8 +43,6 @@ HausProx hausProx;
 
 /* The global buffer for storing user input */
 char input[25];
-/* Amount of time (seconds) since the user provided input */
-int inactivityTimer;
 
 /*************/
 /* Functions */
@@ -134,7 +53,7 @@ int inactivityTimer;
  * program will be responsive to events while inputting data. */
 void read_input(const prog_char *msg, boolean echo=true)
 {
-  int pos = 0, maxlen=sizeof(input);
+  int pos = 0, maxlen=MAX_INPUT_LEN;
 
   if (msg != NULL) {
     // Display the prompt
@@ -149,15 +68,16 @@ void read_input(const prog_char *msg, boolean echo=true)
     {
       // Grab another character from the serial port
       char ch = Serial.read();
-      if (ch == '\n' || ch == '\r') break;
+      if (ch == INPUT_NEWLINE) break;
       // Add another character to our buffer
       input[pos++] = ch;
     }
     /* Possibly handle other events */
-    hausProx.handle_events();
+    hausProx.handleEvents();
   }
   /* Be sure to null terminate the string */
   input[pos] = 0;
+  trim(input);
 //  if (echo) {
     // Echo the input
   Serial.println(input);
@@ -187,7 +107,7 @@ boolean read_card(CardInfo &info)
     else if (ret == DATABASE_EOF) {
       println_prog_str(strInvalidEntry);
     } else {
-      println_prog_str(hausProx.database.getErrorStr(ret));
+      println_prog_str(CardDatabase::getErrorStr(ret));
     }
   }
 }
@@ -242,7 +162,7 @@ boolean wait_for_card()
   while(!hausProx.reader.hasCardData())
   {
     // Wait for the user to hit enter
-    if (Serial.available() > 0 && Serial.read() == '\n') {
+    if (Serial.available() > 0 && Serial.read() == INPUT_NEWLINE) {
       return false;
     }
   }
@@ -272,7 +192,7 @@ void print_cards()
 {
   int err = hausProx.database.enumerateRecords(print_card_cb);
   if (err != DATABASE_SUCCESS) {
-    println_prog_str(hausProx.database.getErrorStr(err));
+    println_prog_str(CardDatabase::getErrorStr(err));
   }
 }
 
@@ -280,7 +200,7 @@ void print_cards()
 void print_datetime()
 {
   clock.update();
-  clock.formatDateTime(input, sizeof(input));
+  clock.formatDateTime(input, MAX_INPUT_LEN);
   print_prog_str(strDateTimeIs);
   Serial.println(input);
 }
@@ -294,7 +214,7 @@ void login_screen()
   while (1) {
     // Prompt for the password, but don't echo the input
     read_input(strLoginPrompt, false);
-    if (hausProx.check_password(input)) {
+    if (hausProx.checkPassword(input)) {
       break;
     }
     delay(1000);
@@ -324,7 +244,7 @@ void command_status()
   println_prog_str(YESNO(hausProx.door.isLocked()));
   /* Display the date/time */
   clock.update();
-  clock.formatDateTime(input, sizeof(input));
+  clock.formatDateTime(input, MAX_INPUT_LEN);
   print_prog_str(strDateStatus);
   Serial.println(input);
   /* Display the door entry duration */
@@ -374,21 +294,7 @@ void diagnostics_menu()
     read_input(strDiagnosticsMenu);
     switch(input[0]) {
       case '1':
-        // Beep test. Short beep
-        hausProx.reader.setBeep(true);
-        delay(200);
-        hausProx.reader.setBeep(false);
-        delay(200);
-        // Long beep
-        hausProx.reader.setBeep(true);
-        delay(400);
-        hausProx.reader.setBeep(false);
-        delay(400);
-        // Short beep
-        hausProx.reader.setBeep(true);
-        delay(200);
-        hausProx.reader.setBeep(false);
-        delay(200);
+        hausProx.reader.playTestBeep();
         break;
       case '2':
         // Strike test
@@ -448,7 +354,7 @@ boolean card_management_add()
       // Serial is already taken
       println_prog_str(strSerialExists);
     } else {
-      println_prog_str(hausProx.database.getErrorStr(ret));
+      println_prog_str(CardDatabase::getErrorStr(ret));
       return true;
     }
   }
@@ -463,20 +369,16 @@ boolean card_management_add()
   info.enabled = ret;
   
   // Now attempt to insert the card into the database
-  ret = hausProx.database.insertCard(info);
+  ret = hausProx.insertCard(info);
   // Display the result (will also print 'Success' on success)
-  println_prog_str(hausProx.database.getErrorStr(ret));
+  println_prog_str(CardDatabase::getErrorStr(ret));
   return true;
 }
 
 /* Lets the user scan cards and automatically adds them to the database disabled */
 void card_management_scan(boolean add)
 {
-  if (add) {
-    println_prog_str(strScanToAdd);
-  } else {
-    println_prog_str(strScanToPrint);
-  }
+  println_prog_str(strSwipeNow);
   while(1)
   {
     // Wait for the user to scan a card or cancel
@@ -492,7 +394,7 @@ void card_management_scan(boolean add)
       /* Log the error and the contents of the card buffer */
       println_prog_str(CardReader::getErrorStr(err));
       hausProx.reader.printBuffer(Serial);
-      Serial.print('\n');
+      Serial.println("");
       continue;
     }
 
@@ -505,12 +407,12 @@ void card_management_scan(boolean add)
     if (add) {
       // Add the card but disable it
       info.enabled = false;
-      err = hausProx.database.insertCard(info);
+      err = hausProx.insertCard(info);
       if (err == DATABASE_SUCCESS) {
         println_prog_str(strCardAdded);
       } else {
         // Display the error
-        println_prog_str(hausProx.database.getErrorStr(err));
+        println_prog_str(CardDatabase::getErrorStr(err));
       }
     }
   }
@@ -531,7 +433,7 @@ void card_management_edit()
   Serial.println(info.serial);
   
   boolean changed = false;
-  while(1) 
+  while(1)
   {
     // Let them enter a new serial (or blank to keep existing number if editing)
     read_input(strCardPrompt);
@@ -554,15 +456,16 @@ void card_management_edit()
   // Prompt the user for the enabled flag
   int ret = read_yesno(strActivePrompt);
   if (ret != -1) {
+    // The user either entered yes or no (note blank is default)
     info.enabled = ret;
     changed = true;
   }
 
   if (changed) {
-    // Replace an existing card
-    ret = hausProx.database.putCard(info.slot, info);
+    // Update the database
+    ret = hausProx.updateCard(info);
     // Display the result (will also print 'Success' on success)
-    println_prog_str(hausProx.database.getErrorStr(ret));
+    println_prog_str(CardDatabase::getErrorStr(ret));
   } else {
     println_prog_str(strAborted);
   }
@@ -581,18 +484,16 @@ boolean card_management_delete()
   print_prog_str(strDeletingCard);
   Serial.println(info.serial);
 
-  if (read_yesno(strConfirmPrompt) != 1) 
+  if (read_yesno(strConfirmPrompt) != 1)
   {
     // The user entered a blank line, or entered 'no'
     println_prog_str(strAborted);
     return true;
   }
-  /* Note that cards are never deleted from the database. Instead the information is blankked-out
-   * (tombstoned) and reused later when a card is inserted. */
-  info.setBlank();
-  int ret = hausProx.database.putCard(info.slot, info);
+  /* Delete the card */
+  int ret = hausProx.deleteCard(info);
   // Display the result (will also print 'Success' on success)
-  println_prog_str(hausProx.database.getErrorStr(ret));
+  println_prog_str(CardDatabase::getErrorStr(ret));
   return true;
 }
 
@@ -726,7 +627,7 @@ void log_management_dump(boolean interactive)
   {
     /* Since log lines may be arbitrarily long, we read them in small chunks. We want to handle the first
      * chunk specially, since we will use that in conjunction with our date filtering. */
-    int len = read_line(&file, input, sizeof(input));
+    int len = read_line(&file, input, MAX_INPUT_LEN);
     if (len == 0) {
       break;
     }
@@ -734,7 +635,8 @@ void log_management_dump(boolean interactive)
     // Whether to output the line or skip over it (ie does it match our filter)
     boolean outputLine = true;
     // Make sure the line is long enough to include a timestamp
-    if (day != 0 && len >= 20) {
+    if (day != 0 && len >= 20) 
+    {
       // TODO - is there a better way than this?
       char daystr[3];
       daystr[0] = input[8];
@@ -758,7 +660,7 @@ void log_management_dump(boolean interactive)
     
     while(1) {
       /* Read in the next chunk, up to the end of the line */
-      int len = read_line(&file, input, sizeof(input));
+      int len = read_line(&file, input, MAX_INPUT_LEN);
       if (len == 0) {
         done = true;
         break;
@@ -837,7 +739,7 @@ void main_menu()
 /* Called once every second by Timer1 */
 void timer_tick()
 {
-  hausProx.door.tick();
+  hausProx.tick();
 }
 
 /* Interrupt handler to receive card data */

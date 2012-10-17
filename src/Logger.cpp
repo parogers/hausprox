@@ -23,15 +23,7 @@
 #include "Logger.h"
 #include "CardReader.h"
 #include "Clock.h"
-
-PROGMEM const prog_char strCardType[] = {"[CARD] "};
-PROGMEM const prog_char strAdminType[] = {"[ADMN] "};
-PROGMEM const prog_char strMessageType[] = {"[MESG] "};
-PROGMEM const prog_char strErrorType[] = {"[ERRR] "};
-PROGMEM const prog_char strDoorType[] = {"[DOOR] "};
-PROGMEM const prog_char strSerialPart[]  = {", serial="};
-PROGMEM const prog_char strBufferPart[] = {", buffer="};
-PROGMEM const prog_char strLogOpenFail[] = {"Failed to open SD log file\n"};
+#include "Const.h"
 
 /* The global logger instance */
 Logger logger;
@@ -64,9 +56,6 @@ void Logger::logMessage(int level, const prog_char *msg, const char *serial, Car
 
   if (sdEnabled) {
     file = SD.open(buf, FILE_WRITE);
-    if (!sdEnabled) {
-      /* Register an error */
-    }
   }
   
 //  if (!file) {
@@ -124,8 +113,6 @@ void Logger::logMessage(int level, const prog_char *msg, const char *serial, Car
   }
 
   if (reader != NULL) {
-    int n, numBits = reader->getBitsRead();
-    char ch;
     if (serialLogging) {
       // Print the card buffer contents to the serial port
       reader->printBuffer(Serial);

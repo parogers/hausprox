@@ -21,15 +21,7 @@
 #include <SD.h>
 #include "CardDatabase.h"
 #include "utils.h"
-
-PROGMEM const prog_char strDatabaseSuccess[] = {"Success"};
-PROGMEM const prog_char strDatabaseFailure[] = {"Failure"};
-PROGMEM const prog_char strDatabaseNotFound[] = {"Record not found"};
-PROGMEM const prog_char strDatabaseOpenFail[] = {"Failed to open card DB"};
-PROGMEM const prog_char strInvalidRecord[] = {"Invalid record in card DB"};
-PROGMEM const prog_char strRecordTooLong[] = {"Record too long"};
-PROGMEM const prog_char strRecordTooShort[] = {"Record too short"};
-PROGMEM const prog_char strDatabaseEOF[] = {"Database EOF"};
+#include "Const.h"
 
 /* The length of a line in the card database (serial+comma+enabled+newline) */
 #define RECORD_LEN     (SERIAL_LEN+1+1+1)
@@ -261,7 +253,7 @@ const prog_char *CardDatabase::getErrorStr(int code)
 {
   switch(code) {
     case DATABASE_SUCCESS:
-      return strDatabaseSuccess;
+      return strSuccess;
     case  DATABASE_OPEN_FAILURE:
       return strDatabaseOpenFail;
     case  DATABASE_RECORD_TOO_SHORT:
@@ -274,6 +266,8 @@ const prog_char *CardDatabase::getErrorStr(int code)
       return strDatabaseNotFound;
     case DATABASE_EOF:
       return strDatabaseEOF;
+    case DATABASE_DOES_NOT_EXIST:
+      return strDatabaseDoesNotExist;
   };
   return strDatabaseFailure;
 }
@@ -295,12 +289,14 @@ int CardDatabase::enumerateRecords(CardCallback func)
 
     if (ret == DATABASE_EOF) break;
     if (ret != DATABASE_SUCCESS) {
+      file.close();
       return ret;
     }
     info.slot = count++;
     func(info);
   }
   file.close();
+  return DATABASE_SUCCESS;
 }
 
 /************/

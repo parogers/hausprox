@@ -130,7 +130,7 @@ byte encodeBCD(byte data)
 void trim(char *str)
 {
   // The whitespace characters
-  char *whitespace = "\n\r \t";
+  const char *whitespace = "\n\r \t";
   int n = strlen(str)-1;
   
   // Trim trailing whitespace
