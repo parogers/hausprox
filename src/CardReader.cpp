@@ -81,7 +81,7 @@ void CardReader::begin(int data, int clock, int present, int beep)
   pinMode(presentPin, INPUT);
   pinMode(beepPin, OUTPUT);
   // Turn off beep by default
-  digitalWrite(beepPin, LOW);
+  digitalWrite(beepPin, HIGH);
   clearCardData();
 }
 
@@ -231,9 +231,9 @@ int CardReader::readCard(char *serial, int maxlen)
 
 void CardReader::beep(int duration)
 {
-  digitalWrite(beepPin, HIGH);
-  delay(duration);
   digitalWrite(beepPin, LOW);
+  delay(duration);
+  digitalWrite(beepPin, HIGH);
 }
 
 void CardReader::playFailBeep()
@@ -322,6 +322,7 @@ void CardReader::printBuffer(Stream &stream)
     else ch = '0';
     stream.print(ch);
   }
+  stream.println("");
 }
 
 int CardReader::getData(int pos)

@@ -254,7 +254,7 @@ boolean HausProx::loadConfig()
   File file = SD.open(CONFIG_FILE, FILE_READ);
   if (!file) {
     // Log the error
-    println_prog_str(strErrorLoadingConfig);
+    logger.logMessage(LOG_ERROR, strErrorLoadingConfig);
     return false;
   }
   
@@ -278,7 +278,7 @@ boolean HausProx::loadConfig()
 
     if (!name || !value) {
       // Badly formed line
-      println_prog_str(strConfigBadLine);
+      logger.logMessage(LOG_ERROR, strConfigBadLine);
       continue;
     }
 
@@ -296,7 +296,7 @@ boolean HausProx::loadConfig()
       // Open house length
       openHouseDuration = atol(value);
     } else {
-      print_prog_str(strConfigInvalid);
+      logger.logMessage(LOG_ERROR, strConfigInvalid);
       Serial.println(name);
     }
   }

@@ -116,12 +116,10 @@ void Logger::logMessage(int level, const prog_char *msg, const char *serial, Car
     if (serialLogging) {
       // Print the card buffer contents to the serial port
       reader->printBuffer(Serial);
-      Serial.print('\n');
     }
     if (file) {
       // Print the card buffer to the log file
       reader->printBuffer(file);
-      file.print('\n');
     }
   }
 

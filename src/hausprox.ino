@@ -194,6 +194,7 @@ void print_cards()
   if (err != DATABASE_SUCCESS) {
     println_prog_str(CardDatabase::getErrorStr(err));
   }
+  Serial.println("");
 }
 
 /* Prints the date/time to Serial */
@@ -298,7 +299,7 @@ void diagnostics_menu()
         break;
       case '2':
         // Strike test
-        hausProx.door.unlock(5);
+        hausProx.unlockDoor(5);
         break;
       case '3':
         // Card swipe test
@@ -308,14 +309,6 @@ void diagnostics_menu()
         return;
     }
   }
-
-  /* Check if the card is physically plugged in */
-  
-  /* Try to initialize the SD library */
-//  if (!SD.begin()
-  
-  /* Try to access the card database */
-
 }
 
 /************************/
@@ -367,7 +360,7 @@ boolean card_management_add()
       return false;
   }
   info.enabled = ret;
-  
+
   // Now attempt to insert the card into the database
   ret = hausProx.insertCard(info);
   // Display the result (will also print 'Success' on success)
@@ -394,7 +387,6 @@ void card_management_scan(boolean add)
       /* Log the error and the contents of the card buffer */
       println_prog_str(CardReader::getErrorStr(err));
       hausProx.reader.printBuffer(Serial);
-      Serial.println("");
       continue;
     }
 
@@ -404,7 +396,8 @@ void card_management_scan(boolean add)
     // Display the serial number
     Serial.println(info.serial);
 
-    if (add) {
+    if (add) 
+    {
       // Add the card but disable it
       info.enabled = false;
       err = hausProx.insertCard(info);

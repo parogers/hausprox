@@ -236,11 +236,19 @@ int CardDatabase::putCard(unsigned int slot, CardInfo &info)
 
 int CardDatabase::insertCard(CardInfo &info)
 {
-  // First try and reuse a blank slot
   CardInfo tmp;
+
+  // Make sure the serial doesn't already exist
+  strcpy(tmp.serial, info.serial);
+  int ret = lookupCard(tmp.serial, tmp);
+  if (ret == DATABASE_SUCCESS) {
+    return DATABASE_ALREADY_EXISTS;
+  }
+
+  // Now try to insert the new card into a blank slot
   tmp.setBlank();
   
-  int ret = lookupCard(tmp.serial, tmp);
+  ret = lookupCard(tmp.serial, tmp);
   if (ret == DATABASE_SUCCESS) {
     // Overwrite the blank record
     return putCard(tmp.slot, info);
@@ -268,6 +276,8 @@ const prog_char *CardDatabase::getErrorStr(int code)
       return strDatabaseEOF;
     case DATABASE_DOES_NOT_EXIST:
       return strDatabaseDoesNotExist;
+    case DATABASE_ALREADY_EXISTS:
+      return strSerialExists;
   };
   return strDatabaseFailure;
 }

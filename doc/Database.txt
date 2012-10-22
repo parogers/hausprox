@@ -42,3 +42,4 @@ Because of memory limitations it is not feasible to read the entire
 card database into memory at once. That makes deleting records tricky.
 Instead records are marked (the serial number is filled with the 
 character 'Z') to indicate they may be freely overwritten.
+

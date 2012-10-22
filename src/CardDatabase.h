@@ -32,6 +32,7 @@
 #define DATABASE_RECORD_NOT_FOUND   -5
 #define DATABASE_EOF                -6
 #define DATABASE_DOES_NOT_EXIST     -7
+#define DATABASE_ALREADY_EXISTS     -8
 
 #define SERIAL_LEN                  (3+1+5)
 
